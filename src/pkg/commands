@@ -1,0 +1,4 @@
+gdb --args ./auth_server 8000 ../config/server-config.json
+gdb --args ./auth_user ../config/user1-config.json
+register localhost 8000
+login localhost 8000
