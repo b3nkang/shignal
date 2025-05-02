@@ -33,6 +33,10 @@ enum T {
   ServerToUser_IssuedCertificate_Message = 10,
   UserToUser_DHPublicValue_Message = 11,
   UserToUser_Message_Message = 12,
+  // SHIGNAL MESSAGES
+  UserToShignal_GenericMessage = 13,
+  ShignalToUser_GenericMessage = 14,
+  UserToShignal_PrekeyMessage = 15,
 };
 };
 MessageType::T get_message_type(std::vector<unsigned char> &data);
@@ -179,3 +183,71 @@ std::vector<unsigned char> concat_byteblocks(CryptoPP::SecByteBlock &b1,
                                              CryptoPP::SecByteBlock &b2);
 std::vector<unsigned char> concat_byteblock_and_cert(CryptoPP::SecByteBlock &b,
                                                      Certificate_Message &cert);
+
+
+// ================================================
+// GROUP CHAT FUNDAMENTAL STRUCTS
+// ================================================
+
+struct GroupState_Message : public Serializable {
+  std::string groupId;
+  // for ensuring synchronicity of rekeying
+  std::string epochId;
+  // vector of userIds
+  std::vector<std::string> members;
+  // map of all other users 
+  std::map<std::string,std::pair<CryptoPP::SecByteBlock,CryptoPP::SecByteBlock>> dhKeyMap;
+
+  // admin info
+  std::string adminId;
+  CryptoPP::RSA::PublicKey adminVerificationKey;
+  Certificate_Message adminCertificate;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+// ================================================
+// PREKEY BUNDLE STRUCT
+// ================================================
+
+struct PrekeyBundle {
+  CryptoPP::RSA::PublicKey senderVk;
+  Certificate_Message senderCert;
+  CryptoPP::SecByteBlock senderDhPk;
+};
+
+// ================================================
+// USER-TO-USER ENCRYPTED PAYLOAD STRUCTS
+// ================================================
+
+struct MessagePayload : public Serializable {
+  std::string msgContent;
+  std::string groupId;
+  std::string senderId;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+// ================================================
+// SHIGNAL-USER MESSAGE STRUCTS
+// ================================================
+
+// this is the encrypted message struct sent from User to Shignal and Shignal to User
+struct Shignal_GenericMessage : public Serializable {
+  std::string recipientId;
+  std::vector<unsigned char> ciphertext; // this should be an encrypted MessagePayload
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+struct UserToShignal_PrekeyMessage : public Serializable {
+  std::string epochId;
+  std::string recipientId;
+  PrekeyBundle prekeyBundle;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
