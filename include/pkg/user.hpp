@@ -32,6 +32,7 @@ public:
 private:
   std::string id;
   Certificate_Message certificate;
+  GroupState_Message groupState;
 
   UserConfig user_config;
   std::shared_ptr<CLIDriver> cli_driver;
@@ -42,6 +43,9 @@ private:
   CryptoPP::RSA::PublicKey RSA_verification_key;
   CryptoPP::RSA::PublicKey RSA_server_verification_key;
   CryptoPP::RSA::PublicKey RSA_remote_verification_key;
+  CryptoPP::RSA::PublicKey RSA_shignal_verification_key;
+  CryptoPP::SecByteBlock DH_sk;
+  CryptoPP::SecByteBlock DH_pk;
   CryptoPP::SecByteBlock prg_seed;
 
   void
