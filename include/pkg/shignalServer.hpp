@@ -19,7 +19,6 @@
 
 class ShignalServerClient {
 public:
-  ShignalServerClient(ShignalServerConfig shignalServerConfig);
   void run(int port);
   void HandleConnection(std::shared_ptr<NetworkDriver> network_driver,
                         std::shared_ptr<CryptoDriver> crypto_driver);
