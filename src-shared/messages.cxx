@@ -13,6 +13,150 @@ MessageType::T get_message_type(std::vector<unsigned char> &data) {
 }
 
 // ================================================
+// SHIGNAL MESSAGE SERIALIZERS AND DESERIALIZERS
+// ================================================
+
+/**
+ * serialize Shignal_GenericMessage.
+ */
+void Shignal_GenericMessage::serialize(std::vector<unsigned char> &data) {
+  // Add message type
+  data.push_back((char)MessageType::Shignal_GenericMessage);
+  
+  // Add fields in order
+  put_string(this->recipientId, data);
+  
+  // For ciphertext (which is a vector<unsigned char>)
+  std::string ciphertext_str = chvec2str(this->ciphertext);
+  put_string(ciphertext_str, data);
+}
+
+/**
+ * deserialize Shignal_GenericMessage.
+ */
+int Shignal_GenericMessage::deserialize(std::vector<unsigned char> &data) {
+  // Check message type
+  assert(data[0] == MessageType::Shignal_GenericMessage);
+  
+  // Get fields in same order
+  int n = 1;
+  
+  std::string ciphertext_str;
+  n += get_string(&this->recipientId, data, n);
+  n += get_string(&ciphertext_str, data, n);
+  
+  // Convert ciphertext back to vector
+  this->ciphertext = str2chvec(ciphertext_str);
+  
+  return n;
+}
+
+/**
+ * serialize Shignal_PrekeyMessage.
+ */
+void UserToShignal_PrekeyMessage::serialize(std::vector<unsigned char> &data) {
+  // Add message type
+  data.push_back((char)MessageType::UserToShignal_PrekeyMessage);
+  
+  // Add fields in order
+  put_string(this->epochId, data);
+  put_string(this->userId, data);
+  
+  // Serialize the bundle
+  std::vector<unsigned char> prekeyData;
+  this->prekeyBundle.serialize(prekeyData);
+  data.insert(data.end(), prekeyData.begin(), prekeyData.end());
+}
+
+/**
+ * deserialize Shignal_PrekeyMessage.
+ */
+int Shignal_PrekeyMessage::deserialize(std::vector<unsigned char> &data) {
+    // Check message type
+    assert(data[0] == MessageType::Shignal_PrekeyMessage);
+    
+    // Get fields in same order
+    int n = 1;
+    
+    n += get_string(&this->epochId, data, n);
+    n += get_string(&this->userId, data, n);
+    
+    // Deserialize the bundle
+    std::vector<unsigned char> slice(data.begin() + n, data.end());
+    int bundle_bytes = this->prekeyBundle.deserialize(slice);
+    n += bundle_bytes;
+    
+    return n;
+}
+
+
+/**
+ * serialize PrekeyBundle.
+ */
+void PrekeyBundle::serialize(std::vector<unsigned char> &data) {
+  // Add message type
+  data.push_back((char)MessageType::PrekeyBundle);
+
+  // Add fields in order
+  std::string senderDhPk_str = byteblock_to_string(this->senderDhPk);
+  put_string(senderDhPk_str, data);
+
+  std::string senderVk_str;
+  CryptoPP::StringSink ss(senderVk_str);
+  this->senderVk.Save(ss);
+  put_string(senderVk_str, data);
+
+  std::vector<unsigned char> certificate_data;
+  this->senderCert.serialize(certificate_data);
+  data.insert(data.end(), certificate_data.begin(), certificate_data.end());
+}
+
+/**
+ * deserialize PrekeyBundle.
+ */
+int PrekeyBundle::deserialize(std::vector<unsigned char> &data) {
+  int n = 1;
+  std::string dh_pk_str;
+  n += get_string(&dh_pk_str, data, n);
+  this->senderDhPk = string_to_byteblock(dh_pk_str);
+
+  std::string senderVk_str;
+  n += get_string(&senderVk_str, data, n);
+  CryptoPP::StringSource ss(senderVk_str, true);
+  this->senderVk.Load(ss);
+
+  std::vector<unsigned char> slice = std::vector<unsigned char>(data.begin() + n, data.end());
+  n += this->senderCert.deserialize(slice);
+
+  return n;
+}
+
+/**
+ * serialize MessagePayload.
+ */
+void MessagePayload::serialize(std::vector<unsigned char> &data) {
+  data.push_back((char)MessageType::MessagePayload);
+
+  put_string(this->msgContent, data);
+  put_string(this->groupId, data);
+  put_string(this->senderId, data);
+}
+
+/**
+ * deserialize MessagePayload.
+ */
+int MessagePayload::deserialize(std::vector<unsigned char> &data) {
+  assert(data[0] == MessageType::MessagePayload);
+  
+  int n = 1;
+  n += get_string(&this->msgContent, data, n);
+  n += get_string(&this->groupId, data, n);
+  n += get_string(&this->senderId, data, n);
+  return n;
+}
+
+
+// ================================================
 // SERIALIZERS
 // ================================================
 
