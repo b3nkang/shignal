@@ -211,10 +211,13 @@ struct GroupState_Message : public Serializable {
 // PREKEY BUNDLE STRUCT
 // ================================================
 
-struct PrekeyBundle {
+struct PrekeyBundle : public Serializable {
+  CryptoPP::SecByteBlock senderDhPk;
   CryptoPP::RSA::PublicKey senderVk;
   Certificate_Message senderCert;
-  CryptoPP::SecByteBlock senderDhPk;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
 };
 
 // ================================================
@@ -245,7 +248,7 @@ struct Shignal_GenericMessage : public Serializable {
 
 struct UserToShignal_PrekeyMessage : public Serializable {
   std::string epochId;
-  std::string recipientId;
+  std::string userId;
   PrekeyBundle prekeyBundle;
 
   void serialize(std::vector<unsigned char> &data);
