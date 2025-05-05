@@ -245,8 +245,6 @@ int GroupState_Message::deserialize(std::vector<unsigned char> &data) {
   return n;
 }
 
-
-
 // ================================================
 // INVITATION MESSAGE SERIALIZERS AND DESERIALIZERS
 // ================================================
@@ -290,7 +288,33 @@ int UserToAdmin_ReplyMessage::deserialize(std::vector<unsigned char> &data) {
 }
 
 // ================================================
-// SERIALIZERS
+// CONTROL MESSAGE SERIALIZERS AND DESERIALIZERS
+// ================================================
+
+/**
+ * serialize AdminToUser_ControlMessage.
+ */ 
+void AdminToUser_Add_ControlMessage::serialize(std::vector<unsigned char> &data) {
+  data.push_back((char)MessageType::AdminToUser_Add_ControlMessage);
+  put_string(this->newUserId, data);
+  put_string(this->groupId, data);
+  put_string(this->adminSignature, data);
+}
+
+/**
+ * deserialize AdminToUser_ControlMessage.
+ */
+int AdminToUser_Add_ControlMessage::deserialize(std::vector<unsigned char> &data) {
+  assert(data[0] == MessageType::AdminToUser_Add_ControlMessage);
+  int n = 1;
+  n += get_string(&this->newUserId, data, n);
+  n += get_string(&this->groupId, data, n);
+  n += get_string(&this->adminSignature, data, n);
+  return n;
+}
+
+// ================================================
+// ALL OTHER PROVIDED SERIALIZERS
 // ================================================
 
 /**

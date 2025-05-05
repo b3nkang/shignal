@@ -274,4 +274,18 @@ struct UserToAdmin_ReplyMessage : public Serializable {
   int deserialize(std::vector<unsigned char> &data);
 };
 
+// ================================================
+// CONTROL MESSAGES
+// ================================================
+
+struct AdminToUser_Add_ControlMessage : public Serializable {
+  std::string newUserId;
+  std::string groupId;
+  std::string adminSignature;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+
 
