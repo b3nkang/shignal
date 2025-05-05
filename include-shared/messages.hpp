@@ -193,8 +193,8 @@ struct GroupState_Message : public Serializable {
   std::string groupId;
   // for ensuring synchronicity of rekeying
   std::string epochId;
-  // vector of userIds
-  std::vector<std::string> members;
+  // set of userIds
+  std::set<std::string> members;
   // map of all other users 
   std::map<std::string,std::pair<CryptoPP::SecByteBlock,CryptoPP::SecByteBlock>> dhKeyMap;
 
@@ -254,3 +254,24 @@ struct UserToShignal_PrekeyMessage : public Serializable {
   void serialize(std::vector<unsigned char> &data);
   int deserialize(std::vector<unsigned char> &data);
 };
+
+// ================================================
+// INVITATION MESSAGES
+// ================================================
+
+struct AdminToUser_InviteMessage : public Serializable {
+  std::string inviteMsg;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+struct UserToAdmin_ReplyMessage : public Serializable {
+  // std::string replyMsg;
+  bool accept;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+

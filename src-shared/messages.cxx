@@ -156,6 +156,49 @@ int MessagePayload::deserialize(std::vector<unsigned char> &data) {
 }
 
 
+
+// ================================================
+// INVITATION MESSAGE SERIALIZERS AND DESERIALIZERS
+// ================================================
+
+/**
+ * serialize AdminToUser_InviteMessage.
+ */
+void AdminToUser_InviteMessage::serialize(std::vector<unsigned char> &data) {
+  data.push_back((char)MessageType::AdminToUser_InviteMessage);
+  put_string(this->inviteMsg, data);
+}
+
+/**
+ * deserialize AdminToUser_InviteMessage.
+ */
+int AdminToUser_InviteMessage::deserialize(std::vector<unsigned char> &data) {
+  assert(data[0] == MessageType::AdminToUser_InviteMessage);
+
+  int n = 1;
+  n += get_string(&this->inviteMsg, data, n);
+  return n;
+}
+
+/**
+ * serialize UserToAdmin_ReplyMessage.
+ */
+void UserToAdmin_ReplyMessage::serialize(std::vector<unsigned char> &data) {
+  data.push_back((char)MessageType::UserToAdmin_ReplyMessage);
+  put_bool(this->accept, data);
+}
+
+/**
+ * deserialize UserToAdmin_ReplyMessage.
+ */
+int UserToAdmin_ReplyMessage::deserialize(std::vector<unsigned char> &data) {
+  assert(data[0] == MessageType::UserToAdmin_ReplyMessage); 
+
+  int n = 1;
+  n += get_bool(&this->accept, data, n);
+  return n;
+}
+
 // ================================================
 // SERIALIZERS
 // ================================================
