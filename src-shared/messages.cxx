@@ -71,9 +71,9 @@ void UserToShignal_PrekeyMessage::serialize(std::vector<unsigned char> &data) {
 /**
  * deserialize Shignal_PrekeyMessage.
  */
-int Shignal_PrekeyMessage::deserialize(std::vector<unsigned char> &data) {
+int UserToShignal_PrekeyMessage::deserialize(std::vector<unsigned char> &data) {
     // Check message type
-    assert(data[0] == MessageType::Shignal_PrekeyMessage);
+    assert(data[0] == MessageType::UserToShignal_PrekeyMessage);
     
     // Get fields in same order
     int n = 1;

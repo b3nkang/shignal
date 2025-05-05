@@ -34,9 +34,14 @@ enum T {
   UserToUser_DHPublicValue_Message = 11,
   UserToUser_Message_Message = 12,
   // SHIGNAL MESSAGES
-  UserToShignal_GenericMessage = 13,
-  ShignalToUser_GenericMessage = 14,
+  GroupState_Message = 13,
+  Shignal_GenericMessage = 14,
   UserToShignal_PrekeyMessage = 15,
+  PrekeyBundle = 16,
+  MessagePayload = 17,
+  AdminToUser_Add_ControlMessage = 18,
+  AdminToUser_InviteMessage = 19,
+  UserToAdmin_ReplyMessage = 20,
 };
 };
 MessageType::T get_message_type(std::vector<unsigned char> &data);
