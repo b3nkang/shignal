@@ -155,6 +155,96 @@ int MessagePayload::deserialize(std::vector<unsigned char> &data) {
   return n;
 }
 
+// ================================================
+// GROUP STATE MESSAGE SERIALIZER AND DESERIALIZER
+// ================================================
+
+// TODO: make sure this is correct, very sus implementation
+/**
+ * serialize GroupState_Message.
+ */
+void GroupState_Message::serialize(std::vector<unsigned char> &data) {
+  data.push_back((char)MessageType::GroupState_Message);
+
+  put_string(this->groupId, data);
+  put_string(this->epochId, data);
+
+  // Serialize members set
+  put_integer(CryptoPP::Integer(this->members.size()), data);
+  for (const std::string &member : this->members) {
+    put_string(member, data);
+  }
+
+  // Serialize dhKeyMap
+  put_integer(CryptoPP::Integer(this->dhKeyMap.size()), data);
+  for (const auto &entry : this->dhKeyMap) {
+    put_string(entry.first, data);
+    put_string(byteblock_to_string(entry.second.first), data);
+    put_string(byteblock_to_string(entry.second.second), data);
+  }
+
+  // Serialize admin info
+  put_string(this->adminId, data);
+
+  std::string adminVkStr;
+  CryptoPP::StringSink ss(adminVkStr);
+  this->adminVerificationKey.Save(ss);
+  put_string(adminVkStr, data);
+
+  std::vector<unsigned char> cert_data;
+  this->adminCertificate.serialize(cert_data);
+  data.insert(data.end(), cert_data.begin(), cert_data.end());
+}
+
+/**
+ * deserialize GroupState_Message.
+ */
+int GroupState_Message::deserialize(std::vector<unsigned char> &data) {
+  assert(data[0] == MessageType::GroupState_Message);
+  int n = 1;
+
+  n += get_string(&this->groupId, data, n);
+  n += get_string(&this->epochId, data, n);
+
+  // Deserialize members
+  CryptoPP::Integer set_size;
+  n += get_integer(&set_size, data, n);
+  this->members.clear();
+  for (size_t i = 0; i < set_size.ConvertToLong(); ++i) {
+    std::string member;
+    n += get_string(&member, data, n);
+    this->members.insert(member);
+  }
+
+  // Deserialize dhKeyMap
+  CryptoPP::Integer map_size;
+  n += get_integer(&map_size, data, n);
+  this->dhKeyMap.clear();
+  for (size_t i = 0; i < map_size.ConvertToLong(); ++i) {
+    std::string userId, aes_str, hmac_str;
+    n += get_string(&userId, data, n);
+    n += get_string(&aes_str, data, n);
+    n += get_string(&hmac_str, data, n);
+    this->dhKeyMap[userId] = {
+      string_to_byteblock(aes_str),
+      string_to_byteblock(hmac_str)
+    };
+  }
+
+  n += get_string(&this->adminId, data, n);
+
+  std::string adminVkStr;
+  n += get_string(&adminVkStr, data, n);
+  CryptoPP::StringSource ss(adminVkStr, true);
+  this->adminVerificationKey.Load(ss);
+
+  std::vector<unsigned char> slice(data.begin() + n, data.end());
+  int cert_bytes = this->adminCertificate.deserialize(slice);
+  n += cert_bytes;
+
+  return n;
+}
+
 
 
 // ================================================
