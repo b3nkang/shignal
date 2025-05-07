@@ -37,11 +37,12 @@ enum T {
   GroupState_Message = 13,
   Shignal_GenericMessage = 14,
   UserToShignal_PrekeyMessage = 15,
-  PrekeyBundle = 16,
-  MessagePayload = 17,
-  AdminToUser_Add_ControlMessage = 18,
-  AdminToUser_InviteMessage = 19,
-  UserToAdmin_ReplyMessage = 20,
+  UserToShignal_OnlineMessage = 16,
+  PrekeyBundle = 17,
+  MessagePayload = 18,
+  AdminToUser_Add_ControlMessage = 19,
+  AdminToUser_InviteMessage = 20,
+  UserToAdmin_ReplyMessage = 21,
 };
 };
 MessageType::T get_message_type(std::vector<unsigned char> &data);
@@ -255,6 +256,13 @@ struct UserToShignal_PrekeyMessage : public Serializable {
   std::string epochId;
   std::string userId;
   PrekeyBundle prekeyBundle;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+struct UserToShignal_OnlineMessage : public Serializable {
+  std::string userId;
 
   void serialize(std::vector<unsigned char> &data);
   int deserialize(std::vector<unsigned char> &data);

@@ -52,6 +52,31 @@ int Shignal_GenericMessage::deserialize(std::vector<unsigned char> &data) {
 }
 
 /**
+ * serialize UserToShignal_OnlineMessage.
+ */
+void UserToShignal_OnlineMessage::serialize(std::vector<unsigned char> &data) {
+  // Add message type
+  data.push_back((char)MessageType::UserToShignal_OnlineMessage);
+  
+  // Add fields in order
+  put_string(this->userId, data);
+}
+
+/**
+ * deserialize UserToShignal_OnlineMessage.
+ */
+int UserToShignal_OnlineMessage::deserialize(std::vector<unsigned char> &data) {
+  // Check message type
+  assert(data[0] == MessageType::UserToShignal_OnlineMessage);
+  
+  // Get fields in same order
+  int n = 1;
+  n += get_string(&this->userId, data, n);
+  
+  return n;
+}
+
+/**
  * serialize Shignal_PrekeyMessage.
  */
 void UserToShignal_PrekeyMessage::serialize(std::vector<unsigned char> &data) {
