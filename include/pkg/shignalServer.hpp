@@ -19,7 +19,8 @@
 
 class ShignalServerClient {
 public:
-  void run(int port);
+  ShignalServerClient();
+  void run();
   void HandleConnection(std::shared_ptr<NetworkDriver> network_driver,
                         std::shared_ptr<CryptoDriver> crypto_driver);
   std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
@@ -35,12 +36,19 @@ public:
   // 4. if sender is in onlineUsers, add message to user's inbox, return
   // 5. if sender is not in onlineUsers, add message to user's inbox, return
 
+  void HandleShignalMessage(std::shared_ptr<NetworkDriver> network_driver);
+  void ListenForMessages();
+  void HandleGenericMessage(std::vector<unsigned char> data);
+  void HandlePrekeyBundle(std::vector<unsigned char> data);
+  void HandleOnlineMessage(std::vector<unsigned char> data, std::shared_ptr<NetworkDriver> driver);
+
 private:
-  ShignalServerConfig shignalServerConfig;
+  int port;
+  // ShignalServerConfig shignalServerConfig;
   std::shared_ptr<CLIDriver> cli_driver;
 
   // map of online users for whom to directly forward messages
-  std::map<std::string,shared_ptr<NetworkDriver>> onlineUsers;
+  std::map<std::string,std::shared_ptr<NetworkDriver>> onlineUsers;
 
   // map of users to their inboxes for storing messages while offline
   std::map<std::string,std::deque<Shignal_GenericMessage>> userInboxes;
