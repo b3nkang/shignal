@@ -26,12 +26,14 @@ int main(int argc, char *argv[]) {
   // Initialize drivers
   std::shared_ptr<NetworkDriver> network_driver =
       std::make_shared<NetworkDriverImpl>();
+  std::shared_ptr<NetworkDriver> shignal_driver =
+      std::make_shared<NetworkDriverImpl>();
   std::shared_ptr<CryptoDriver> crypto_driver =
       std::make_shared<CryptoDriver>();
 
   // Create client object and run
   UserConfig user_config = load_user_config(argv[1]);
-  UserClient user = UserClient(network_driver, crypto_driver, user_config);
+  UserClient user = UserClient(network_driver, shignal_driver, crypto_driver, user_config);
   user.run();
   return 0;
 }
