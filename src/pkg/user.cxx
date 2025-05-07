@@ -278,8 +278,14 @@ void UserClient::DoLoginOrRegister(std::string input) {
   SavePRGSeed(this->user_config.user_prg_seed_path,this->prg_seed);
   this->id = this->user_config.user_username;
   this->cli_driver->print_success("Successfully registered/logged in as " + this->id);
-  
 
+  // send notification to ShignalServer that user is online
+  this->shignal_driver->connect("localhost",2700);
+  UserToShignal_OnlineMessage onlineMsg;
+  onlineMsg.userId = this->id;
+  std::vector<unsigned char> onlineData;
+  onlineMsg.serialize(onlineData);
+  this->shignal_driver->send(onlineData);
 }
 
 
