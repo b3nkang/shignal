@@ -73,3 +73,28 @@ void ShignalServerClient::HandleShignalMessage(std::shared_ptr<NetworkDriver> dr
 
   driver->disconnect();
 }
+
+void ShignalServerClient::HandleGenericMessage(std::vector<unsigned char> data) {
+  Shignal_GenericMessage msg;
+  msg.deserialize(data);
+  this->cli_driver->print_info("Handling Generic Message...");
+
+  // if recipient is "online" according to the map, optimistically send
+  if (this->onlineUsers.contains(msg.recipientId)) {
+    std::shared_ptr<NetworkDriver> &driver = this->onlineUsers.at(msg.recipientId);
+    try {
+      driver->send(data);
+      this->cli_driver->print_info("Message sent to online user: " + msg.recipientId);
+    } catch (const std::runtime_error &e) {
+      this->cli_driver->print_warning("Send failed; marking " + msg.recipientId + " as offline.");
+      // mark now as offline
+      this->onlineUsers.erase(msg.recipientId);
+      // add to inbox
+      this->userInboxes[msg.recipientId].push_back(msg);
+    }
+  } else {
+    this->cli_driver->print_info("Recipient offline; message stored.");
+    this->userInboxes[msg.recipientId].push_back(msg);
+  }
+  this->cli_driver->print_info("Message forwarding execution finished.");
+}
