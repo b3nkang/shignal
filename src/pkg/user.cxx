@@ -20,6 +20,7 @@
  * Constructor. Loads server public key.
  */
 UserClient::UserClient(std::shared_ptr<NetworkDriver> network_driver,
+                       std::shared_ptr<NetworkDriver> shignal_driver,
                        std::shared_ptr<CryptoDriver> crypto_driver,
                        UserConfig user_config) {
 
@@ -27,6 +28,7 @@ UserClient::UserClient(std::shared_ptr<NetworkDriver> network_driver,
   this->cli_driver = std::make_shared<CLIDriver>();
   this->crypto_driver = crypto_driver;
   this->network_driver = network_driver;
+  this->shignal_driver = shignal_driver;
   this->user_config = user_config;
 
   this->cli_driver->init();
@@ -64,7 +66,7 @@ UserClient::UserClient(std::shared_ptr<NetworkDriver> network_driver,
 void UserClient::run() {
   REPLDriver<UserClient> repl = REPLDriver<UserClient>(this);
   repl.add_action("login", "login <address> <port>",
-                  &UserClient::HandleLoginOrRegister);
+                  &UserClient::HandleLoginOrRegister); // TODO: handle this case where we need to empty the inbox for an offline user
   repl.add_action("register", "register <address> <port>",
                   &UserClient::HandleLoginOrRegister);
   repl.add_action("listen", "listen <port>", &UserClient::HandleUser);
@@ -275,8 +277,103 @@ void UserClient::DoLoginOrRegister(std::string input) {
   SaveRSAPublicKey(this->user_config.user_verification_key_path,this->RSA_verification_key);
   SavePRGSeed(this->user_config.user_prg_seed_path,this->prg_seed);
   this->id = this->user_config.user_username;
+  this->cli_driver->print_success("Successfully registered/logged in as " + this->id);
+  
+
 }
 
+
+// =================================================================
+// FUNCTIONS FOR ADD MEMBER DIAGRAM WORKFLOW START BELOW
+// =================================================================
+
+/**
+ * Assumes authenticated KE with given recipientId has already been done.
+ * 
+ * Sends invite message to a group chat to a recipient. If GroupState_Message of this user (the sender) is uninitialized,
+ * then this user (sender) will create the group chat and become the admin of the group.
+ * 
+ * Then waits for a reply from the recipient. If the recipient accepts, then the admin sends group info to the member and
+ * initiates a broadcast AdminToUser_Add_ControlMessage to all other members of the group.
+ */
+void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys) {
+  // check if groupstate is uninitialized
+  if (this->groupState.adminId.empty()) {
+    // init basic fields
+    std::string groupId = byteblock_to_string(crypto_driver->png(16));
+    std::string epochId = byteblock_to_string(crypto_driver->png(16));
+    this->groupState.groupId = groupId;
+    this->groupState.epochId = epochId;
+    this->groupState.members.insert(this->id);
+    // init admin fields
+    this->groupState.adminId = this->id;
+    this->groupState.adminVerificationKey = this->RSA_verification_key;
+    this->groupState.adminCertificate = this->certificate;
+  } else {
+    // check if this user is the admin
+    if (this->groupState.adminId == this->id) {
+      this->cli_driver->print_success("You are attempting to send an invite to: "+recipientId);
+    } else {
+      this->cli_driver->print_warning("You are not the admin of this group chat. You do not have permission to send invites.");
+      return;
+    }
+  }
+  // check if recipientId is in the group
+  if (this->groupState.members.find(recipientId) != this->groupState.members.end()) {
+    this->cli_driver->print_warning("Recipient is already in the group chat.");
+    return;
+  }
+  // send the invite message
+  AdminToUser_InviteMessage inviteMsg;
+  inviteMsg.inviteMsg = "You have been invited to join a group chat! Do you accept?";
+  std::vector<unsigned char> inviteData = crypto_driver->encrypt_and_tag(keys.first,keys.second,&inviteMsg);
+  network_driver->send(inviteData);
+
+  std::vector<unsigned char> replyData = network_driver->read();
+  std::vector<unsigned char> decReply;
+  bool valid;
+  std::tie(decReply, valid) = crypto_driver->decrypt_and_verify(keys.first, keys.second, replyData);
+  if (!valid) throw std::runtime_error("Invalid HMAC on InviteReply");
+
+  UserToAdmin_ReplyMessage replyMsg;
+  replyMsg.deserialize(decReply);
+
+  if (replyMsg.accept) {
+    cli_driver->print_success(recipientId + " accepted the invite!");
+    // send the group info to the recipient
+    std::vector<unsigned char> groupStateData = crypto_driver->encrypt_and_tag(keys.first,keys.second,&this->groupState);
+    network_driver->send(groupStateData);
+  } else {
+    cli_driver->print_warning(recipientId + " rejected the invite.");
+    return;
+  }
+  // update GroupState_Message for admin at the end
+  this->groupState.members.insert(recipientId);
+  AdminToUser_Add_ControlMessage addMsg;
+  addMsg.newUserId = recipientId;
+  addMsg.groupId = this->groupState.groupId;
+  addMsg.adminSignature = this->crypto_driver->RSA_sign(this->RSA_signing_key,concat_string_and_rsakey(this->groupState.groupId, this->groupState.adminVerificationKey));
+
+  for (auto member : this->groupState.members) {
+    if (member != this->id) {
+      // encrypt addMsg for each member with each member's keys
+      auto memberKeys = this->groupState.dhKeyMap[member];
+      std::vector<unsigned char> addMsgData = crypto_driver->encrypt_and_tag(memberKeys.first,memberKeys.second,&addMsg);
+      // then send the cipher through GenericMessage
+      Shignal_GenericMessage maskedAddMsg;
+      maskedAddMsg.recipientId = recipientId;
+      maskedAddMsg.ciphertext = addMsgData;
+      std::vector<unsigned char> maskedAddMsgData;
+      maskedAddMsg.serialize(maskedAddMsgData);
+      shignal_driver->send(maskedAddMsgData);
+    }
+  }
+}
+
+
+/**
+ * 
+ */
 /**
  * Handles communicating with another user. This function
  * 1) Prompts the CLI to see if we're registering or logging in.
@@ -302,6 +399,7 @@ void UserClient::HandleUser(std::string input) {
     std::string ip = args[1];
     int port = std::stoi(args[2]);
     this->network_driver->connect(ip, port);
+    this->shignal_driver->connect("localhost", 2700);
   }
 
   // Exchange keys.

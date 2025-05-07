@@ -18,6 +18,7 @@
 class UserClient {
 public:
   UserClient(std::shared_ptr<NetworkDriver> network_driver,
+             std::shared_ptr<NetworkDriver> shignal_driver,
              std::shared_ptr<CryptoDriver> crypto_driver,
              UserConfig user_config);
   void run();
@@ -28,9 +29,11 @@ public:
   void HandleLoginOrRegister(std::string input);
   void DoLoginOrRegister(std::string input);
   void HandleUser(std::string input);
+  void DoInviteMember(std::string input,std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys);
 
 private:
   std::string id;
+  // std::string name;
   Certificate_Message certificate;
   GroupState_Message groupState;
 
@@ -38,6 +41,7 @@ private:
   std::shared_ptr<CLIDriver> cli_driver;
   std::shared_ptr<CryptoDriver> crypto_driver;
   std::shared_ptr<NetworkDriver> network_driver;
+  std::shared_ptr<NetworkDriver> shignal_driver;
 
   CryptoPP::RSA::PrivateKey RSA_signing_key;
   CryptoPP::RSA::PublicKey RSA_verification_key;
