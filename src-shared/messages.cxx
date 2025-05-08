@@ -186,6 +186,8 @@ void PrekeyBundle::serialize(std::vector<unsigned char> &data) {
   data.push_back((char)MessageType::PrekeyBundle);
 
   // Add fields in order
+  put_string(this->senderSignature, data);
+
   std::string senderDhPk_str = byteblock_to_string(this->senderDhPk);
   put_string(senderDhPk_str, data);
 
@@ -204,6 +206,8 @@ void PrekeyBundle::serialize(std::vector<unsigned char> &data) {
  */
 int PrekeyBundle::deserialize(std::vector<unsigned char> &data) {
   int n = 1;
+  n += get_string(&this->senderSignature, data, n);
+
   std::string dh_pk_str;
   n += get_string(&dh_pk_str, data, n);
   this->senderDhPk = string_to_byteblock(dh_pk_str);

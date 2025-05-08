@@ -221,6 +221,7 @@ struct GroupState_Message : public Serializable {
 // ================================================
 
 struct PrekeyBundle : public Serializable {
+  std::string senderSignature;
   CryptoPP::SecByteBlock senderDhPk;
   CryptoPP::RSA::PublicKey senderVk;
   Certificate_Message senderCert;
