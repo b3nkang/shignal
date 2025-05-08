@@ -123,7 +123,8 @@ void UserToShignal_RequestPrekeyBundle::serialize(std::vector<unsigned char> &da
 
   // Add fields in order
   put_string(this->epochId, data);
-  put_string(this->userId, data);
+  put_string(this->requestedId, data);
+  put_string(this->requestorId, data);
 }
 
 /**
@@ -136,7 +137,8 @@ int UserToShignal_RequestPrekeyBundle::deserialize(std::vector<unsigned char> &d
   // Get fields in same order
   int n = 1;
   n += get_string(&this->epochId, data, n);
-  n += get_string(&this->userId, data, n);
+  n += get_string(&this->requestedId, data, n);
+  n += get_string(&this->requestorId, data, n);
 
   return n;
 }

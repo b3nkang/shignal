@@ -273,7 +273,8 @@ struct UserToShignal_OnlineMessage : public Serializable {
 
 struct UserToShignal_RequestPrekeyBundle : public Serializable {
   std::string epochId;
-  std::string userId;
+  std::string requestedId;
+  std::string requestorId;
 
   void serialize(std::vector<unsigned char> &data);
   int deserialize(std::vector<unsigned char> &data);
