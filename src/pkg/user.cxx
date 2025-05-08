@@ -347,8 +347,17 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   if (replyMsg.accept) {
     cli_driver->print_success(recipientId + " accepted the invite!");
     // send the group info to the recipient
-    std::vector<unsigned char> groupStateData = crypto_driver->encrypt_and_tag(keys.first,keys.second,&this->groupState);
-    network_driver->send(groupStateData);
+    // importantly, make a clone so that we do not leak Admin dh_keymap to newUser
+    GroupState_Message safeGroupState;
+    safeGroupState.groupId = this->groupState.groupId;
+    safeGroupState.epochId = this->groupState.epochId;
+    safeGroupState.adminId = this->groupState.adminId;
+    safeGroupState.adminVerificationKey = this->groupState.adminVerificationKey;
+    safeGroupState.adminCertificate = this->groupState.adminCertificate;
+    safeGroupState.members = this->groupState.members;
+
+    std::vector<unsigned char> safeGroupStateData = crypto_driver->encrypt_and_tag(keys.first,keys.second,&safeGroupState);
+    network_driver->send(safeGroupStateData);
   } else {
     cli_driver->print_warning(recipientId + " rejected the invite.");
     return;
@@ -440,6 +449,8 @@ void UserClient::HandleUser(std::string input) {
 
   // Exchange keys.
   auto keys = this->HandleUserKeyExchange();
+
+  // TODO: don't forget we need to save the keys in the dh_keymap once we have it
 
   // Clear the screen
   this->cli_driver->init();
