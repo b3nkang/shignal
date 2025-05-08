@@ -30,7 +30,8 @@ public:
   void DoLoginOrRegister(std::string input);
   void HandleUser(std::string input);
   void DoInviteMember(std::string input,std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys);
-
+  void DoSendGroupMessage(std::string input);
+  
 private:
   std::string id;
   // std::string name;

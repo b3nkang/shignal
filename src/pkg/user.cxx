@@ -377,6 +377,36 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
 }
 
 
+// =================================================================
+// FUNCTIONS FOR SEND MESSAGE DIAGRAM WORKFLOW START BELOW
+// =================================================================
+
+void UserClient::DoSendGroupMessage(std::string message) {
+  // check if groupstate is uninitialized
+  if (this->groupState.adminId.empty()) {
+    this->cli_driver->print_warning("You are not in a group chat. Please create a group chat first.");
+    return;
+  }
+  for (auto memberId : this->groupState.members) {
+    if (memberId != this->id) {
+      auto memberKeys = this->groupState.dhKeyMap[memberId];
+      MessagePayload messagePayload;
+      messagePayload.msgContent = message;
+      messagePayload.groupId = this->groupState.groupId;
+      messagePayload.senderId = this->id;
+      std::vector<unsigned char> msgData = crypto_driver->encrypt_and_tag(memberKeys.first,memberKeys.second,&messagePayload);
+      // then send the cipher through GenericMessage
+      Shignal_GenericMessage maskedMsg;
+      maskedMsg.recipientId = memberId;
+      maskedMsg.ciphertext = msgData;
+      std::vector<unsigned char> maskedMsgData;
+      maskedMsg.serialize(maskedMsgData);
+      shignal_driver->send(maskedMsgData);
+      this->cli_driver->print_success("Sent message to " + memberId);
+    }
+  }
+}
+
 /**
  * 
  */
