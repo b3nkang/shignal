@@ -114,6 +114,67 @@ int UserToShignal_PrekeyMessage::deserialize(std::vector<unsigned char> &data) {
     return n;
 }
 
+/**
+ * serialize UserToShignal_RequestPrekeyBundle.
+ */
+void UserToShignal_RequestPrekeyBundle::serialize(std::vector<unsigned char> &data) {
+  // Add message type
+  data.push_back((char)MessageType::UserToShignal_RequestPrekeyBundle);
+
+  // Add fields in order
+  put_string(this->epochId, data);
+  put_string(this->userId, data);
+}
+
+/**
+ * deserialize UserToShignal_RequestPrekeyBundle.
+ */
+int UserToShignal_RequestPrekeyBundle::deserialize(std::vector<unsigned char> &data) {
+  // Check message type
+  assert(data[0] == MessageType::UserToShignal_RequestPrekeyBundle);
+
+  // Get fields in same order
+  int n = 1;
+  n += get_string(&this->epochId, data, n);
+  n += get_string(&this->userId, data, n);
+
+  return n;
+}
+
+/**
+ * serialize ShignalToUser_PrekeyBundleResponse.
+ */
+void ShignalToUser_PrekeyBundleResponse::serialize(std::vector<unsigned char> &data) {
+  // Add message type
+  data.push_back((char)MessageType::ShignalToUser_PrekeyBundleResponse);
+
+  // Add fields in order
+  put_bool(this->found, data);
+  
+  // Serialize the bundle
+  std::vector<unsigned char> prekeyData;
+  this->prekeyBundle.serialize(prekeyData);
+  data.insert(data.end(), prekeyData.begin(), prekeyData.end());
+}
+
+/**
+ * deserialize ShignalToUser_PrekeyBundleResponse.
+ */
+int ShignalToUser_PrekeyBundleResponse::deserialize(std::vector<unsigned char> &data) {
+  // Check message type
+  assert(data[0] == MessageType::ShignalToUser_PrekeyBundleResponse);
+
+  // Get fields in same order
+  int n = 1;
+  n += get_bool(&this->found, data, n);
+  
+  // Deserialize the bundle
+  std::vector<unsigned char> slice(data.begin() + n, data.end());
+  int bundle_bytes = this->prekeyBundle.deserialize(slice);
+  n += bundle_bytes;
+
+  return n;
+}
 
 /**
  * serialize PrekeyBundle.

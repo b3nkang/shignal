@@ -36,13 +36,16 @@ enum T {
   // SHIGNAL MESSAGES
   GroupState_Message = 13,
   Shignal_GenericMessage = 14,
-  UserToShignal_PrekeyMessage = 15,
-  UserToShignal_OnlineMessage = 16,
-  PrekeyBundle = 17,
-  MessagePayload = 18,
-  AdminToUser_Add_ControlMessage = 19,
-  AdminToUser_InviteMessage = 20,
-  UserToAdmin_ReplyMessage = 21,
+  ShignalToUser_PrekeyBundleResponse = 15,
+  UserToShignal_PrekeyMessage = 16,
+  UserToShignal_RequestPrekeyBundle = 17,
+  UserToShignal_OnlineMessage = 18,
+  PrekeyBundle = 19,
+  MessagePayload = 20,
+  AdminToUser_Add_ControlMessage = 21,
+  AdminToUser_InviteMessage = 22,
+  UserToAdmin_ReplyMessage = 23,
+
 };
 };
 MessageType::T get_message_type(std::vector<unsigned char> &data);
@@ -263,6 +266,22 @@ struct UserToShignal_PrekeyMessage : public Serializable {
 
 struct UserToShignal_OnlineMessage : public Serializable {
   std::string userId;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+struct UserToShignal_RequestPrekeyBundle : public Serializable {
+  std::string epochId;
+  std::string userId;
+
+  void serialize(std::vector<unsigned char> &data);
+  int deserialize(std::vector<unsigned char> &data);
+};
+
+struct ShignalToUser_PrekeyBundleResponse : public Serializable {
+  bool found; // we don't want to poll indefinitely if a user's bundle is not found
+  PrekeyBundle prekeyBundle;
 
   void serialize(std::vector<unsigned char> &data);
   int deserialize(std::vector<unsigned char> &data);
