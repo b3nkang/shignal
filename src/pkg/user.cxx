@@ -70,9 +70,9 @@ void UserClient::run() {
 
   REPLDriver<UserClient> repl = REPLDriver<UserClient>(this);
 
-  repl.add_action("invite", "Invite a user to a group: invite <recipientId> <port>", &UserClient::HandleInviteMember);
-  repl.add_action("join", "Join a group after receiving invite", &UserClient::HandleJoinGroup);
-  repl.add_action("send", "Send a message to the group: send <message>", &UserClient::HandleSendGroupMessage);
+  repl.add_action("invite", "invite <recipientId> <sharedPort>", &UserClient::HandleInviteMember);
+  repl.add_action("join", "join <sharedPort>", &UserClient::HandleJoinGroup);
+  repl.add_action("send", "send <message>", &UserClient::HandleSendGroupMessage);
   repl.add_action("login", "login <address> <port>", &UserClient::HandleLoginOrRegister);
   repl.add_action("register", "register <address> <port>", &UserClient::HandleLoginOrRegister);
   // repl.add_action("listen", "listen <port>", &UserClient::HandleUser);
