@@ -36,6 +36,11 @@ public:
   void DoSendGroupMessage(std::string input);
   void HandleShignalMessage(std::vector<unsigned char> data);
   void HandleAddControlMessage(std::vector<unsigned char> decMsg);
+  void HandleMessagePayload(std::vector<unsigned char> decMsg);
+  void HandleInviteMember(std::string input);
+  void HandleJoinGroup(std::string input);
+  void HandleSendGroupMessage(std::string input);
+
 private:
   std::string id;
   // std::string name;
@@ -58,6 +63,8 @@ private:
 
   void
   ReceiveThread(std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys);
+  void
+  ShignalReceiveThread();
   void
   SendThread(std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys);
 };
