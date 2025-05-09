@@ -33,7 +33,7 @@ ShignalServerClient::ShignalServerClient() {
  * then starts listening for connections.
  */
 void ShignalServerClient::run() {
-  std::thread listener_thread(&ShignalServerClient::ListenForMessages, this, this->port);
+  std::thread listener_thread(&ShignalServerClient::ListenForMessages, this);
   listener_thread.detach();
 
   REPLDriver<ShignalServerClient> repl = REPLDriver<ShignalServerClient>(this);
@@ -71,7 +71,7 @@ void ShignalServerClient::HandleShignalMessage(std::shared_ptr<NetworkDriver> dr
       break;
   }
 
-  driver->disconnect();
+  // driver->disconnect();
 }
 
 void ShignalServerClient::HandleGenericMessage(std::vector<unsigned char> data) {
@@ -105,7 +105,7 @@ void ShignalServerClient::HandleOnlineMessage(std::vector<unsigned char> data,st
   this->cli_driver->print_info("Handling Online Status in Shignal...");
 
   // add to online users map now
-  driver->listen(this->port);
+  // driver->listen(this->port);
   this->onlineUsers[msg.userId] = driver;
 
   // check if the user has any messages in their inbox
@@ -120,6 +120,7 @@ void ShignalServerClient::HandleOnlineMessage(std::vector<unsigned char> data,st
     }
     this->userInboxes.erase(msg.userId);
   }
+  this->cli_driver->print_info("Online status handling execution finished.");
 }
 
 /**
