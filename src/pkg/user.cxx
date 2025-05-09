@@ -604,10 +604,10 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
 
   if (decMsg[0] == MessageType::MessagePayload) {
     // this is a normal message, handle normally
-    // TODO: add handler for this
+    HandleMessagePayload(decMsg);
   } else if (decMsg[0] == MessageType::AdminToUser_Add_ControlMessage) {
     // this is a control message, handle
-    
+    HandleAddControlMessage(decMsg);
   } else {
     this->cli_driver->print_warning("Unknown message type received from " + maskedMsg.recipientId+". Exiting handling of ShignalMessage.");
     return;
@@ -617,6 +617,15 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
 // =========================================================
 // HANDLERS FOR DIFFERENT GENERIC SHIGNAL MESSAGES
 // =========================================================
+
+/**
+ * Handles a decrypted Shignal_GenericMessage whose cipher is a MessagePayload.
+ */
+void UserClient::HandleMessagePayload(std::vector<unsigned char> decMsg) {
+  MessagePayload msg;
+  msg.deserialize(decMsg);
+  this->cli_driver->print_success("From " + msg.senderId + ": " + msg.msgContent);
+}
 
 /**
  * Handles a decrypted AdminToUser_Add_ControlMessage.
