@@ -27,19 +27,12 @@ public:
   HandleKeyExchange(std::shared_ptr<NetworkDriver> network_driver,
                     std::shared_ptr<CryptoDriver> crypto_driver);
 
-  // TODO: add functions for handling incoming messages
-  void HandleIncomingMessage(std::shared_ptr<NetworkDriver> network_driver);
-  // pseudocode for handling incoming message:
-  // 1. check if incoming is prekey or generic
-  // 2. if prekey, do updates for prekey and return
-  // 3. if generic, check if sender is in onlineUsers, if no, jump to step 5
-  // 4. if sender is in onlineUsers, add message to user's inbox, return
-  // 5. if sender is not in onlineUsers, add message to user's inbox, return
-
   void HandleShignalMessage(std::shared_ptr<NetworkDriver> network_driver);
   void ListenForMessages();
   void HandleGenericMessage(std::vector<unsigned char> data);
   void HandlePrekeyBundle(std::vector<unsigned char> data);
+  void HandlePrekeyBundleRequest(std::vector<unsigned char> data);
+  void ReadLoop(std::shared_ptr<NetworkDriver> driver); // <-- ADD THIS
   void HandleOnlineMessage(std::vector<unsigned char> data, std::shared_ptr<NetworkDriver> driver);
 
 private:
