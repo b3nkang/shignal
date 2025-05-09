@@ -172,6 +172,42 @@ UserClient::HandleUserKeyExchange() {
 }
 
 /**
+ * Does Authenticated KE between a PrekeyBundle and the user.
+ */
+std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
+UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) {
+  // vrfy cert is signed by the server
+  std::vector<unsigned char> certData = concat_string_and_rsakey(bundle.senderCert.id, bundle.senderCert.verification_key);
+  bool certValid = this->crypto_driver->RSA_verify(this->RSA_server_verification_key, certData, bundle.senderCert.server_signature);
+  if (!certValid) {
+    throw std::runtime_error("HandlePrekeyBundleExchange: Invalid certificate");
+  }
+
+  // sanity check, memberId matches the cert ID
+  if (bundle.senderCert.id != memberId) {
+    throw std::runtime_error("HandlePrekeyBundleExchange: Certificate ID does not match expected memberId");
+  }
+
+  std::vector<unsigned char> userData = concat_byteblock_and_cert(bundle.senderDhPk, bundle.senderCert);
+  bool userValid = this->crypto_driver->RSA_verify(bundle.senderCert.verification_key, userData, bundle.senderSignature);
+  if (!userValid) {
+    throw std::runtime_error("HandlePrekeyBundleExchange: Invalid DH signature from bundle");
+  }
+
+  DH DH_obj;
+  SecByteBlock DHsk, DHpk;
+  std::tie(DH_obj, DHsk, DHpk) = this->crypto_driver->DH_initialize();
+
+  SecByteBlock DHshared(DH_obj.AgreedValueLength());
+  DHshared = this->crypto_driver->DH_generate_shared_key(DH_obj, DHsk, bundle.senderDhPk);
+
+  SecByteBlock AESkey = this->crypto_driver->AES_generate_key(DHshared);
+  SecByteBlock HMACkey = this->crypto_driver->HMAC_generate_key(DHshared);
+
+  return {AESkey, HMACkey};
+}
+
+/**
  * User login or register.
  */
 void UserClient::HandleLoginOrRegister(std::string input) {
@@ -203,7 +239,6 @@ void UserClient::HandleLoginOrRegister(std::string input) {
  * this->RSA_verification_key
  */
 void UserClient::DoLoginOrRegister(std::string input) {
-  // TODO: implement me!
   bool isRegistering = (input == "register");
   std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys = HandleServerKeyExchange();
   UserToServer_IDPrompt_Message idPromptMsg;
