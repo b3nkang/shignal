@@ -112,6 +112,7 @@ void UserClient::HandleListen(std::string input) {
         this->cli_driver->print_success("Received peer connection!");
         auto keys = this->HandleUserKeyExchangeForInvite(peer);
         this->DoJoinGroup(keys,peer);
+        this->cli_driver->print_success("END OF HANDLELISTEN!");
       } catch (const std::exception &e) {
         this->cli_driver->print_warning("Listener error: " + std::string(e.what()));
       }
@@ -245,6 +246,9 @@ UserClient::HandleUserKeyExchange() {
   SecByteBlock DHpk;
   std::tie(DH_obj,DHsk,DHpk) = this->crypto_driver->DH_initialize();
 
+  // this->DH_pk = DHpk;
+  // this->DH_sk = DHsk;
+
   std::vector<unsigned char> toSign = concat_byteblock_and_cert(DHpk,this->certificate);
   std::string sig = crypto_driver->RSA_sign(this->RSA_signing_key,toSign);
 
@@ -286,6 +290,9 @@ UserClient::HandleUserKeyExchangeForInvite(std::shared_ptr<NetworkDriver> driver
   DH DH_obj;
   SecByteBlock DHsk, DHpk;
   std::tie(DH_obj, DHsk, DHpk) = this->crypto_driver->DH_initialize();
+
+  this->DH_pk = DHpk;
+  this->DH_sk = DHsk;
 
   std::vector<unsigned char> toSign = concat_byteblock_and_cert(DHpk, this->certificate);
   std::string sig = crypto_driver->RSA_sign(this->RSA_signing_key, toSign);
@@ -329,22 +336,27 @@ UserClient::HandleUserKeyExchangeForInvite(std::shared_ptr<NetworkDriver> driver
  */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
 UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) {
+  this->cli_driver->print_info("In HandleBundleKeyExchange...");
   // vrfy cert is signed by the server
   std::vector<unsigned char> certData = concat_string_and_rsakey(bundle.senderCert.id, bundle.senderCert.verification_key);
   bool certValid = this->crypto_driver->RSA_verify(this->RSA_server_verification_key, certData, bundle.senderCert.server_signature);
   if (!certValid) {
     throw std::runtime_error("HandlePrekeyBundleExchange: Invalid certificate");
   }
-
+  this->cli_driver->print_success("Certificate verified, now verifying user signature...");
   // sanity check, memberId matches the cert ID
   if (bundle.senderCert.id != memberId) {
     throw std::runtime_error("HandlePrekeyBundleExchange: Certificate ID does not match expected memberId");
   }
-
   std::vector<unsigned char> userData = concat_byteblock_and_cert(bundle.senderDhPk, bundle.senderCert);
   bool userValid = this->crypto_driver->RSA_verify(bundle.senderCert.verification_key, userData, bundle.senderSignature);
   if (!userValid) {
     throw std::runtime_error("HandlePrekeyBundleExchange: Invalid DH signature from bundle");
+  }
+  this->cli_driver->print_success("User signature verified, now generating shared key...");
+
+  if (bundle.senderDhPk.SizeInBytes() == 0) {
+    throw std::runtime_error("senderDhPk is empty; cannot generate shared key");
   }
 
   DH DH_obj;
@@ -524,6 +536,25 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   }
   this->cli_driver->print_info("Now inside of DoInviteMember workflow..");
 
+  // admin uploads their prekey bundle to the server
+  PrekeyBundle bundle;
+  bundle.senderSignature = this->crypto_driver->RSA_sign(this->RSA_signing_key,concat_byteblock_and_cert(this->DH_pk,this->certificate));
+  bundle.senderDhPk = this->DH_pk;
+  this->cli_driver->print_info("current sender dh pk: " + byteblock_to_string(this->DH_pk));
+  bundle.senderVk = this->RSA_verification_key;
+  bundle.senderCert = this->certificate;
+
+  UserToShignal_PrekeyMessage prekeyMsg;
+  prekeyMsg.epochId = this->groupState.epochId;
+  prekeyMsg.userId = this->id;
+  prekeyMsg.prekeyBundle = bundle;
+
+  this->cli_driver->print_info("Attempting to send prekey bundle to ShignalServer...");
+  std::vector<unsigned char> prekeyData;
+  prekeyMsg.serialize(prekeyData);
+  this->shignal_driver->send(prekeyData);
+  this->cli_driver->print_success("Admin bundle sent to ShignalServer.");
+
   // send the invite message
   AdminToUser_InviteMessage inviteMsg;
   inviteMsg.inviteMsg = "You have been invited to join a group chat! Do you accept?";
@@ -570,7 +601,7 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   this->cli_driver->print_success("Updated admin's local group state, now attempting to send AddControlMessage to all members of the group chat.");
 
   for (auto member : this->groupState.members) {
-    if (member != this->id) {
+    if (member != this->id && member != recipientId) {
       // encrypt addMsg for each member with each member's keys
       auto memberKeys = this->groupState.dhKeyMap[member];
       std::vector<unsigned char> addMsgData = crypto_driver->encrypt_and_tag(memberKeys.first,memberKeys.second,&addMsg);
@@ -581,8 +612,12 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
       std::vector<unsigned char> maskedAddMsgData;
       maskedAddMsg.serialize(maskedAddMsgData);
       shignal_driver->send(maskedAddMsgData);
+    } else {
+      this->cli_driver->print_info("Skipping sending AddControlMessage to self or new user.");
     }
   }
+  // TODO: admin also needs to upload prekey bundle to ShignalServer
+  // Admin also needs to poll server to get new user's prekey bundle
 }
 
 
@@ -650,7 +685,7 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
   prekeyMsg.userId = this->id;
   prekeyMsg.prekeyBundle = bundle;
 
-  this->cli_driver->print_success("Attempting to send prekey bundle to ShignalServer...");
+  this->cli_driver->print_info("Attempting to send prekey bundle to ShignalServer...");
   std::vector<unsigned char> prekeyData;
   prekeyMsg.serialize(prekeyData);
   this->shignal_driver->send(prekeyData);
@@ -666,16 +701,36 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
       std::vector<unsigned char> prekeyReqData;
       prekeyReq.serialize(prekeyReqData);
       this->shignal_driver->send(prekeyReqData);
+      this->cli_driver->print_success("Sent prekey request to ShignalServer for " + memberId);
+
       // wait for prekey bundle response
-      std::vector<unsigned char> prekeyRespData = this->shignal_driver->read();
-      ShignalToUser_PrekeyBundleResponse prekeyRespMsg;
-      prekeyRespMsg.deserialize(prekeyRespData);
-      if (!prekeyRespMsg.found) {
+      std::vector<unsigned char> respData = this->shignal_driver->read();
+      ShignalToUser_PrekeyBundleResponse prekeyResp;
+      prekeyResp.deserialize(respData);
+      int retries = 0;
+      // poll retries up to 5 times if prekey not found
+      while (!prekeyResp.found && retries < 5) {
+        this->cli_driver->print_warning("Prekey not found for new user " + memberId + ". Retrying...");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        prekeyReq.epochId = this->groupState.epochId;
+        prekeyReq.requestedId = memberId;
+        prekeyReq.requestorId = this->id;
+
+        std::vector<unsigned char> reqData;
+        prekeyReq.serialize(reqData);
+        this->shignal_driver->send(reqData);
+
+        respData = this->shignal_driver->read();
+        prekeyResp.deserialize(respData);
+        retries++;
+      }
+      if (!prekeyResp.found) {
         this->cli_driver->print_warning("Prekey not found for " + memberId + ". Skipping KE.");
         continue;
       }
+      this->cli_driver->print_success("Prekey bundle found for " + memberId + ", now doing KE...");
       // do authenticated KE with the prekey bundle
-      std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys = this->HandleBundleKeyExchange(prekeyRespMsg.prekeyBundle, memberId);
+      std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, memberId);
       // store the keys in the dhKeyMap
       this->groupState.dhKeyMap[memberId] = keys;
       this->cli_driver->print_success("Authenticated KE with " + memberId);
@@ -770,6 +825,7 @@ void UserClient::HandleAddControlMessage(std::vector<unsigned char> decMsg) {
   int retries = 0;
   while (!prekeyResp.found && retries < 5) {
     this->cli_driver->print_warning("Prekey not found for new user " + msg.newUserId + ". Retrying...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     prekeyReq.epochId = this->groupState.epochId;
     prekeyReq.requestedId = msg.newUserId;
     prekeyReq.requestorId = this->id;
