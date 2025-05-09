@@ -557,6 +557,68 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
   }
 }
 
+// =========================================================
+// HANDLERS FOR DIFFERENT GENERIC SHIGNAL MESSAGES
+// =========================================================
+
+/**
+ * Handles a decrypted AdminToUser_Add_ControlMessage.
+ */
+void UserClient::HandleAddControlMessage(std::vector<unsigned char> decMsg) {
+  AdminToUser_Add_ControlMessage msg;
+  msg.deserialize(decMsg);
+  
+  // vrfy admin signature
+  std::vector<unsigned char> signedData = concat_string_and_rsakey(this->groupState.groupId, this->groupState.adminVerificationKey);
+  bool valid = this->crypto_driver->RSA_verify(this->groupState.adminVerificationKey, signedData, msg.adminSignature);
+  if (!valid) {
+    this->cli_driver->print_warning("Invalid admin signature on Add_ControlMessage");
+    return;
+  }
+  this->cli_driver->print_success("Verified Add_ControlMessage for new user: " + msg.newUserId);
+
+  // get prekey from ShignalServer
+  UserToShignal_RequestPrekeyBundle prekeyReq;
+  prekeyReq.epochId = this->groupState.epochId;
+  prekeyReq.requestedId = msg.newUserId;
+  prekeyReq.requestorId = this->id;
+
+  std::vector<unsigned char> reqData;
+  prekeyReq.serialize(reqData);
+  this->shignal_driver->send(reqData);
+
+  std::vector<unsigned char> respData = this->shignal_driver->read();
+  ShignalToUser_PrekeyBundleResponse prekeyResp;
+  prekeyResp.deserialize(respData);
+
+  int retries = 0;
+  while (!prekeyResp.found && retries < 5) {
+    this->cli_driver->print_warning("Prekey not found for new user " + msg.newUserId + ". Retrying...");
+    prekeyReq.epochId = this->groupState.epochId;
+    prekeyReq.requestedId = msg.newUserId;
+    prekeyReq.requestorId = this->id;
+
+    std::vector<unsigned char> reqData;
+    prekeyReq.serialize(reqData);
+    this->shignal_driver->send(reqData);
+
+    respData = this->shignal_driver->read();
+    prekeyResp.deserialize(respData);
+    retries++;
+  }
+  if (!prekeyResp.found) {
+    this->cli_driver->print_warning("Prekey not found for new user " + msg.newUserId + ". Exiting.");
+    return;
+  }
+
+  // atp we must have the prekey, now do authenticated KE
+  auto keys = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, msg.newUserId);
+  this->groupState.dhKeyMap[msg.newUserId] = keys;
+  this->groupState.members.insert(msg.newUserId);
+
+  this->cli_driver->print_success("Completed authenticated KE with new user " + msg.newUserId);
+}
+
 // =================================================================
 // FUNCTIONS FOR SEND MESSAGE DIAGRAM WORKFLOW START BELOW
 // =================================================================

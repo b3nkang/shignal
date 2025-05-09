@@ -34,7 +34,8 @@ public:
   void DoInviteMember(std::string input,std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys);
   void DoJoinGroup(std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys);
   void DoSendGroupMessage(std::string input);
-
+  void HandleShignalMessage(std::vector<unsigned char> data);
+  void HandleAddControlMessage(std::vector<unsigned char> decMsg);
 private:
   std::string id;
   // std::string name;
