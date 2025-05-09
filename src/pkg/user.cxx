@@ -794,6 +794,29 @@ void UserClient::ReceiveThread(
 }
 
 /**
+ * Listen for messages and print to CLI.
+ */
+void UserClient::ShignalReceiveThread() {
+  while (true) {
+    std::vector<unsigned char> data;
+
+    try {
+      data = this->shignal_driver->read();
+    } catch (const std::runtime_error &e) {
+      this->cli_driver->print_warning("Signal server connection closed or read failed.");
+      return;
+    }
+
+    try {
+      this->HandleShignalMessage(data);
+    } catch (const std::exception &e) {
+      this->cli_driver->print_warning("Failed to handle Shignal message: " + std::string(e.what()));
+    }
+  }
+}
+
+
+/**
  * Listen for stdin and send to other party.
  */
 void UserClient::SendThread(
