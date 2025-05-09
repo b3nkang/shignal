@@ -28,10 +28,16 @@ void NetworkDriverImpl::listen(int port) {
  * @param port Port to conect to.
  */
 void NetworkDriverImpl::connect(std::string address, int port) {
+  if (this->is_connected) {
+    std::cout << "Already connected to signal server, skipping reconnect.\n";
+    return;
+  }
+
   if (address == "localhost")
     address = "127.0.0.1";
   this->socket->connect(
       tcp::endpoint(boost::asio::ip::address::from_string(address), port));
+  this->is_connected = true;
 }
 
 /**
@@ -41,6 +47,7 @@ void NetworkDriverImpl::disconnect() {
   this->socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both);
   this->socket->close();
   this->io_context.stop();
+  this->is_connected = false;
 }
 
 /**

@@ -15,6 +15,7 @@ public:
   virtual void send(std::vector<unsigned char> data) = 0;
   virtual std::vector<unsigned char> read() = 0;
   virtual std::string get_remote_info() = 0;
+  virtual bool connected() const = 0;
 };
 
 class NetworkDriverImpl : public NetworkDriver {
@@ -26,9 +27,11 @@ public:
   void send(std::vector<unsigned char> data);
   std::vector<unsigned char> read();
   std::string get_remote_info();
+  bool connected() const override { return this->is_connected; }
 
 private:
   int port;
   boost::asio::io_context io_context;
   std::shared_ptr<boost::asio::ip::tcp::socket> socket;
+  bool is_connected = false;
 };
