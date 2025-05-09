@@ -22,11 +22,14 @@ class NetworkDriverImpl : public NetworkDriver {
 public:
   NetworkDriverImpl();
   void listen(int port);
+  void prepare_listener(int port);
   void connect(std::string address, int port);
   void disconnect();
   void send(std::vector<unsigned char> data);
   std::vector<unsigned char> read();
   std::string get_remote_info();
+  std::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor;
+  std::shared_ptr<NetworkDriver> accept();  
   bool connected() const override { return this->is_connected; }
 
 private:

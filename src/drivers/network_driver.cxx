@@ -22,6 +22,11 @@ void NetworkDriverImpl::listen(int port) {
   acceptor.accept(*this->socket);
 }
 
+void NetworkDriverImpl::prepare_listener(int port) {
+  this->acceptor = std::make_shared<tcp::acceptor>(
+      this->io_context, tcp::endpoint(tcp::v4(), port));
+}
+
 /**
  * Connect to the given address and port.
  * @param address Address to connect to.
@@ -93,4 +98,21 @@ std::vector<unsigned char> NetworkDriverImpl::read() {
 std::string NetworkDriverImpl::get_remote_info() {
   return this->socket->remote_endpoint().address().to_string() + ":" +
          std::to_string(this->socket->remote_endpoint().port());
+}
+
+std::shared_ptr<NetworkDriver> NetworkDriverImpl::accept() {
+  if (!this->acceptor) {
+    throw std::runtime_error("accept() called before listen()");
+  }
+
+  std::shared_ptr<boost::asio::ip::tcp::socket> socket =
+      std::make_shared<boost::asio::ip::tcp::socket>(this->acceptor->get_executor());
+
+  this->acceptor->accept(*socket);
+
+  auto new_driver = std::make_shared<NetworkDriverImpl>();
+  new_driver->socket = socket;
+  new_driver->is_connected = true;
+
+  return new_driver;
 }
