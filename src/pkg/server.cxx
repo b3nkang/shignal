@@ -101,7 +101,15 @@ void ServerClient::ListenForConnections(int port) {
         std::make_shared<NetworkDriverImpl>();
     std::shared_ptr<CryptoDriver> crypto_driver =
         std::make_shared<CryptoDriver>();
-    network_driver->listen(port);
+    // network_driver->listen(port);
+    try {
+      network_driver->listen(port);
+      this->cli_driver->print_success("Listening on port " + std::to_string(port));
+    } catch (const std::exception &e) {
+      this->cli_driver->print_warning("Failed to listen: " + std::string(e.what()));
+      continue;
+    }
+
     std::thread connection_thread(&ServerClient::HandleConnection, this,
                                   network_driver, crypto_driver);
     connection_thread.detach();
@@ -119,25 +127,39 @@ bool ServerClient::HandleConnection(
     std::shared_ptr<NetworkDriver> network_driver,
     std::shared_ptr<CryptoDriver> crypto_driver) {
   try {
-    std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys = HandleKeyExchange(network_driver,crypto_driver);
-    std::vector<unsigned char> idPromptData = network_driver->read();
-    std::vector<unsigned char>  decIdPromptData;
+    this->cli_driver->print_info("HandleConnection: starting KE");
+    auto keys = HandleKeyExchange(network_driver, crypto_driver);
+
+    this->cli_driver->print_info("HandleConnection: waiting for ID prompt");
+    auto idPromptData = network_driver->read();
+
+    std::vector<unsigned char> decIdPromptData;
     bool valid;
     UserToServer_IDPrompt_Message idPromptMsg;
-    std::tie(decIdPromptData,valid) = crypto_driver->decrypt_and_verify(keys.first,keys.second,idPromptData);
+
+    std::tie(decIdPromptData, valid) = crypto_driver->decrypt_and_verify(keys.first, keys.second, idPromptData);
     if (!valid) {
-      throw std::runtime_error("handleConnection: bad vrfy on idpromptmsg");
+      throw std::runtime_error("handleConnection: bad HMAC on idPromptMsg");
     }
+
     idPromptMsg.deserialize(decIdPromptData);
+    this->cli_driver->print_info("HandleConnection: got ID prompt for user " + idPromptMsg.id);
+
     if (idPromptMsg.new_user) {
-      HandleRegister(network_driver,crypto_driver,idPromptMsg.id,keys);
+      this->cli_driver->print_info("HandleConnection: new user, calling HandleRegister");
+      HandleRegister(network_driver, crypto_driver, idPromptMsg.id, keys);
     } else {
-      HandleLogin(network_driver,crypto_driver,idPromptMsg.id,keys);
+      this->cli_driver->print_info("HandleConnection: existing user, calling HandleLogin");
+      HandleLogin(network_driver, crypto_driver, idPromptMsg.id, keys);
     }
+
     network_driver->disconnect();
+    this->cli_driver->print_success("Connection handled successfully");
+    // this->cli_driver->print_success("USER ID:");
     return true;
-  } catch (...) {
-    this->cli_driver->print_warning("Connection threw an error");
+
+  } catch (const std::exception &e) {
+    this->cli_driver->print_warning(std::string("Connection threw an error: ") + e.what());
     network_driver->disconnect();
     return false;
   }
