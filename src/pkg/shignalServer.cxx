@@ -58,8 +58,8 @@ void ShignalServerClient::HandleShignalMessage(std::shared_ptr<NetworkDriver> dr
       this->cli_driver->print_info("Shignal received Shignal_GenericMessage, handling...");
       HandleGenericMessage(data);
       break;
-    case MessageType::PrekeyBundle:
-      this->cli_driver->print_info("Shignal received PrekeyBundle, handling...");
+    case MessageType::UserToShignal_PrekeyMessage:
+      this->cli_driver->print_info("Shignal received UserToShignal_PrekeyMessage, handling...");
       HandlePrekeyBundle(data);
       break;
     case MessageType::UserToShignal_OnlineMessage:
@@ -119,5 +119,29 @@ void ShignalServerClient::HandleOnlineMessage(std::vector<unsigned char> data,st
       inbox.pop_front();
     }
     this->userInboxes.erase(msg.userId);
+  }
+}
+
+/**
+ * Stores a prekey bundle in the epochPrekeys map.
+ */
+void ShignalServerClient::HandlePrekeyBundle(std::vector<unsigned char> data) {
+  UserToShignal_PrekeyMessage msg;
+  msg.deserialize(data);
+  this->cli_driver->print_info("Handling PrekeyBundle from: " + msg.userId);
+
+  // if new epoch and no bucket yet, make it
+  if (!this->epochPrekeys.contains(msg.epochId)) {
+    this->epochPrekeys[msg.epochId] = std::map<std::string, PrekeyBundle>();
+  }
+
+  // store bundle
+  this->epochPrekeys[msg.epochId][msg.userId] = msg.prekeyBundle;
+  this->cli_driver->print_success("Stored PrekeyBundle for user " + msg.userId + " in epoch " + msg.epochId);
+
+  // vrfy inbox exists for this user, if not, create it since it is a new user sending us their prekey bundle
+  if (!this->userInboxes.contains(msg.userId)) {
+    this->cli_driver->print_info("Creating inbox for new user: " + msg.userId);
+    this->userInboxes[msg.userId] = std::deque<Shignal_GenericMessage>();
   }
 }
