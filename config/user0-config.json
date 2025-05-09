@@ -1,5 +1,5 @@
 {
-    "user_username": "higashikata_josuke",
+    "user_username": "tree",
     "user_password": "crazy_diamond",
     "user_signing_key_path": "../keys/user0-rsa-private.key",
     "user_verification_key_path": "../keys/user0-rsa-public.key",
