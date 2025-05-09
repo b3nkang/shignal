@@ -64,6 +64,7 @@ UserClient::UserClient(std::shared_ptr<NetworkDriver> network_driver,
  * Starts repl.
  */
 void UserClient::run() {
+  shignal_driver->connect("localhost", 2700);
   this->cli_driver->print_info("Starting signal listener...");
   boost::thread shignalThread = boost::thread(boost::bind(&UserClient::ShignalReceiveThread, this));
 
@@ -77,7 +78,7 @@ void UserClient::run() {
   // repl.add_action("listen", "listen <port>", &UserClient::HandleUser);
   // repl.add_action("connect", "connect <address> <port>",
   //                 &UserClient::HandleUser);
-  // repl.run();
+  repl.run();
 }
 
 /**
@@ -269,6 +270,7 @@ UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) 
  */
 void UserClient::HandleLoginOrRegister(std::string input) {
   // Connect to server and check if we are registering.
+  this->cli_driver->print_info("In HandleLoginOrRegister...");
   std::vector<std::string> input_split = string_split(input, ' ');
   if (input_split.size() != 3) {
     this->cli_driver->print_left("invalid number of arguments.");
@@ -278,6 +280,7 @@ void UserClient::HandleLoginOrRegister(std::string input) {
   int port = std::stoi(input_split[2]);
   this->network_driver->connect(address, port);
   this->DoLoginOrRegister(input_split[0]);
+  this->cli_driver->print_success("Registered/logged in as user: " + this->id);
 }
 
 /**
@@ -372,7 +375,10 @@ void UserClient::DoLoginOrRegister(std::string input) {
   this->cli_driver->print_success("Successfully registered/logged in as " + this->id);
 
   // send notification to ShignalServer that user is online
-  this->shignal_driver->connect("localhost",2700);
+  if (!this->shignal_driver->connected()) {
+    this->cli_driver->print_info("Connecting to Signal server...");
+    this->shignal_driver->connect("localhost", 2700);
+  }
   UserToShignal_OnlineMessage onlineMsg;
   onlineMsg.userId = this->id;
   std::vector<unsigned char> onlineData;
