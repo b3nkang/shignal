@@ -26,12 +26,15 @@ public:
   HandleServerKeyExchange();
   std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
   HandleUserKeyExchange();
+  std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
+  HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId);
   void HandleLoginOrRegister(std::string input);
   void DoLoginOrRegister(std::string input);
   void HandleUser(std::string input);
   void DoInviteMember(std::string input,std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys);
+  void DoJoinGroup(std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys);
   void DoSendGroupMessage(std::string input);
-  
+
 private:
   std::string id;
   // std::string name;

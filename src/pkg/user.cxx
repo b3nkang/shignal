@@ -421,6 +421,104 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
 }
 
 
+/**
+ * Assumes authenticated KE with given recipientId has already been done.
+ * 
+ * For the current implementation, Shignal only supports one group chat at a time per user.
+ * Therefore if the user is already in a group chat, the user cannot join another group chat.
+ */
+void UserClient::DoJoinGroup(std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys) {
+  // check if groupstate is uninitialized
+  if (!this->groupState.adminId.empty()) {
+    this->cli_driver->print_warning("You are already a group chat. Please leave your current group first.");
+    return;
+  }
+  // read in invite message
+  std::vector<unsigned char> inviteData = this->network_driver->read();
+  std::vector<unsigned char> decInvite;
+  bool valid;
+  std::tie(decInvite, valid) = this->crypto_driver->decrypt_and_verify(keys.first,keys.second,inviteData);
+  if (!valid) throw std::runtime_error("Invalid HMAC on invite");
+
+  AdminToUser_InviteMessage inviteMsg;
+  inviteMsg.deserialize(decInvite);
+  this->cli_driver->print_success(inviteMsg.inviteMsg);
+
+  // prompt user for response
+  std::string stdinResponse;
+  std::cout << "Accept invite? (y/n): ";
+  std::getline(std::cin,stdinResponse);
+  bool accept = (stdinResponse == "y");
+
+  // send reply message
+  UserToAdmin_ReplyMessage replyMsg;
+  replyMsg.accept = accept;
+  std::vector<unsigned char> replyData = crypto_driver->encrypt_and_tag(keys.first,keys.second,&replyMsg);
+  network_driver->send(replyData);
+
+  if (!accept) { // short circuit if user rejects
+    this->cli_driver->print_info("You rejected the group invite.");
+    return;
+  }
+
+  // read in group info
+  std::vector<unsigned char> groupStateData = this->network_driver->read();
+  std::vector<unsigned char> decGroupState;
+  bool valid2;
+  std::tie(decGroupState, valid2) = this->crypto_driver->decrypt_and_verify(keys.first,keys.second,groupStateData);
+  if (!valid2) throw std::runtime_error("Invalid HMAC on groupState");
+  GroupState_Message groupStateMsg;
+  groupStateMsg.deserialize(decGroupState);
+  this->groupState = groupStateMsg;
+  this->cli_driver->print_success("You have joined the group chat!");
+
+  // send prekey bundle to ShigalServer
+  PrekeyBundle bundle;
+  bundle.senderSignature = this->crypto_driver->RSA_sign(this->RSA_signing_key,concat_byteblock_and_cert(this->DH_pk,this->certificate));
+  bundle.senderDhPk = this->DH_pk;
+  bundle.senderVk = this->RSA_verification_key;
+  bundle.senderCert = this->certificate;
+
+
+  UserToShignal_PrekeyMessage prekeyMsg;
+  prekeyMsg.epochId = this->groupState.epochId;
+  prekeyMsg.userId = this->id;
+  prekeyMsg.prekeyBundle = bundle;
+
+  std::vector<unsigned char> prekeyData;
+  prekeyMsg.serialize(prekeyData);
+  this->shignal_driver->send(prekeyData);
+
+  // do auth KE for all members' prekeys in current epoch
+  for (auto memberId : this->groupState.members) {
+    if (memberId != this->id) {
+      UserToShignal_RequestPrekeyBundle prekeyReq;
+      prekeyReq.epochId = this->groupState.epochId;
+      prekeyReq.requestedId = memberId;
+      prekeyReq.requestorId = this->id;
+      std::vector<unsigned char> prekeyReqData;
+      prekeyReq.serialize(prekeyReqData);
+      this->shignal_driver->send(prekeyReqData);
+      // wait for prekey bundle response
+      std::vector<unsigned char> prekeyRespData = this->shignal_driver->read();
+      ShignalToUser_PrekeyBundleResponse prekeyRespMsg;
+      prekeyRespMsg.deserialize(prekeyRespData);
+      if (!prekeyRespMsg.found) {
+        this->cli_driver->print_warning("Prekey not found for " + memberId + ". Skipping KE.");
+        continue;
+      }
+      // do authenticated KE with the prekey bundle
+      std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys = this->HandleBundleKeyExchange(prekeyRespMsg.prekeyBundle, memberId);
+      // store the keys in the dhKeyMap
+      this->groupState.dhKeyMap[memberId] = keys;
+      this->cli_driver->print_success("Authenticated KE with " + memberId);
+    }
+  }
+}
+
+
+// TODO: implement handling to receive a messafge from ShignalServer
+
 // =================================================================
 // FUNCTIONS FOR SEND MESSAGE DIAGRAM WORKFLOW START BELOW
 // =================================================================
