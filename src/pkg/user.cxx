@@ -516,8 +516,46 @@ void UserClient::DoJoinGroup(std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByte
   }
 }
 
+/**
+ * A megahandler for receiving messages from the ShignalServer.
+ */
+void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
+  // deserialize the masked msg
+  Shignal_GenericMessage maskedMsg;
+  maskedMsg.deserialize(data);
 
-// TODO: implement handling to receive a messafge from ShignalServer
+  // make sure we have keys for the recipient and get them
+  if (!this->groupState.dhKeyMap.contains(maskedMsg.recipientId)) {
+    this->cli_driver->print_warning("Received message for unknown recipient: " + maskedMsg.recipientId);
+    return;
+  }
+  auto [aesKey, hmacKey] = this->groupState.dhKeyMap.at(maskedMsg.recipientId);
+
+  // dec and vrfy
+  std::vector<unsigned char> decMsg;
+  bool valid;
+  std::tie(decMsg,valid) = this->crypto_driver->decrypt_and_verify(aesKey, hmacKey, maskedMsg.ciphertext);
+  if (!valid) {
+    this->cli_driver->print_warning("Invalid MAC on Shignal message from " + maskedMsg.recipientId);
+    return;
+  }
+
+  if (decMsg.empty()) {
+    this->cli_driver->print_warning("Empty message received, ending handling of ShignalMessage");
+    return;
+  }
+
+  if (decMsg[0] == MessageType::MessagePayload) {
+    // this is a normal message, handle normally
+    // TODO: add handler for this
+  } else if (decMsg[0] == MessageType::AdminToUser_Add_ControlMessage) {
+    // this is a control message, handle
+    
+  } else {
+    this->cli_driver->print_warning("Unknown message type received from " + maskedMsg.recipientId+". Exiting handling of ShignalMessage.");
+    return;
+  }
+}
 
 // =================================================================
 // FUNCTIONS FOR SEND MESSAGE DIAGRAM WORKFLOW START BELOW
