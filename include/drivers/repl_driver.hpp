@@ -13,6 +13,7 @@
 #include "../../include/drivers/cli_driver.hpp"
 #include "../../include/pkg/server.hpp"
 #include "../../include/pkg/user.hpp"
+#include "../../include/pkg/shignalServer.hpp"
 
 template <class T> class REPLDriver {
 public:
@@ -29,3 +30,4 @@ private:
 };
 template class REPLDriver<UserClient>;
 template class REPLDriver<ServerClient>;
+template class REPLDriver<ShignalServerClient>;
