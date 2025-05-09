@@ -64,15 +64,72 @@ UserClient::UserClient(std::shared_ptr<NetworkDriver> network_driver,
  * Starts repl.
  */
 void UserClient::run() {
+  this->cli_driver->print_info("Starting signal listener...");
+  boost::thread shignalThread = boost::thread(boost::bind(&UserClient::ShignalReceiveThread, this));
+
   REPLDriver<UserClient> repl = REPLDriver<UserClient>(this);
-  repl.add_action("login", "login <address> <port>",
-                  &UserClient::HandleLoginOrRegister); // TODO: handle this case where we need to empty the inbox for an offline user
-  repl.add_action("register", "register <address> <port>",
-                  &UserClient::HandleLoginOrRegister);
-  repl.add_action("listen", "listen <port>", &UserClient::HandleUser);
-  repl.add_action("connect", "connect <address> <port>",
-                  &UserClient::HandleUser);
-  repl.run();
+
+  repl.add_action("invite", "Invite a user to a group: invite <recipientId> <port>", &UserClient::HandleInviteMember);
+  repl.add_action("join", "Join a group after receiving invite", &UserClient::HandleJoinGroup);
+  repl.add_action("send", "Send a message to the group: send <message>", &UserClient::HandleSendGroupMessage);
+  repl.add_action("login", "login <address> <port>", &UserClient::HandleLoginOrRegister);
+  repl.add_action("register", "register <address> <port>", &UserClient::HandleLoginOrRegister);
+  // repl.add_action("listen", "listen <port>", &UserClient::HandleUser);
+  // repl.add_action("connect", "connect <address> <port>",
+  //                 &UserClient::HandleUser);
+  // repl.run();
+}
+
+/**
+ * Lightweight wrapper that does user to user auth KE and then enters DoInviteMember()
+ */
+void UserClient::HandleInviteMember(std::string input) {
+  std::vector<std::string> args = string_split(input, ' ');
+  if (args.size() != 3) {
+    this->cli_driver->print_warning("Invalid args, usage: invite <userId> <port>");
+    return;
+  }
+  std::string userId = args[1];
+  int port = std::stoi(args[2]);
+  this->network_driver->connect("localhost", port);
+  this->shignal_driver->connect("localhost", 2700);
+
+  auto keys = this->HandleUserKeyExchange();
+  this->cli_driver->print_success("KE completed, connected to " + userId);
+
+  this->DoInviteMember(userId, keys);
+}
+
+/**
+ * Lightweight wrapper that does user to user auth KE and then enters DoJoinGroup()
+ */
+void UserClient::HandleJoinGroup(std::string input) {
+  std::vector<std::string> args = string_split(input, ' ');
+  if (args.size() != 2) {
+    this->cli_driver->print_warning("Invalid args, usage: join <port>");
+    return;
+  }
+  int port = std::stoi(args[1]);
+  this->network_driver->connect("localhost", port);
+  this->shignal_driver->connect("localhost", 2700);
+
+  auto keys = this->HandleUserKeyExchange();
+  this->cli_driver->print_success("KE completed, connected to admin");
+
+  this->DoJoinGroup(keys);
+}
+
+/**
+ * Lightweight wrapper that parses and calls DoSendGroupMessage()
+ */
+void UserClient::HandleSendGroupMessage(std::string input) {
+  std::vector<std::string> args = string_split(input, ' ');
+  if (args.size() != 2) {
+    this->cli_driver->print_warning("Invalid args, usage: send <message>");
+    return;
+  }
+  std::string message = args[1];
+  this->DoSendGroupMessage(message);
 }
 
 /**
@@ -614,6 +671,7 @@ void UserClient::HandleAddControlMessage(std::vector<unsigned char> decMsg) {
   // atp we must have the prekey, now do authenticated KE
   auto keys = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, msg.newUserId);
   this->groupState.dhKeyMap[msg.newUserId] = keys;
+  // add the new user to the group state
   this->groupState.members.insert(msg.newUserId);
 
   this->cli_driver->print_success("Completed authenticated KE with new user " + msg.newUserId);
