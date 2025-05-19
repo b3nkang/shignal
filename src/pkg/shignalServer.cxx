@@ -215,8 +215,27 @@ void ShignalServerClient::HandlePrekeyBundleRequest(std::vector<unsigned char> d
     response.prekeyBundle = this->epochPrekeys[msg.epochId][msg.requestedId];
     std::vector<unsigned char> responseData;
     response.serialize(responseData);
-    this->onlineUsers[msg.requestorId]->send(responseData);
-    this->cli_driver->print_success("Sent PrekeyBundle to " + msg.requestorId);
+    this->cli_driver->print_info("Found PrekeyBundle for " + msg.requestedId + ", sending to " + msg.requestorId);
+    this->cli_driver->print_info("Verifying that user is online... ");
+    if (this->onlineUsers.contains(msg.requestorId)) {
+      this->cli_driver->print_info("Requestor "+msg.requestorId+" is online.");
+      this->onlineUsers[msg.requestorId]->send(responseData);
+      this->onlineUsers[msg.requestorId]->send(responseData);
+      this->onlineUsers[msg.requestorId]->send(responseData);
+
+      this->cli_driver->print_success("Sent PrekeyBundle to " + msg.requestorId);
+
+    } else {
+      this->cli_driver->print_warning("Requestor "+msg.requestorId+" is offline. Aborting.");
+      return;
+      // this->cli_driver->print_warning("Sending PrekeyBundle to offline user, they will receive it when they come online.");
+      // // add to inbox
+      // this->userInboxes[msg.requestorId].push_back(response);
+      // this->cli_driver->print_info("Added PrekeyBundle to inbox for " + msg.requestorId);
+    }
+    // this->cli_driver->print_info("Is useronline... "+onlineUsers.contains(msg.requestorId));
+    // this->onlineUsers[msg.requestorId]->send(responseData);
+    // this->cli_driver->print_success("Sent PrekeyBundle to " + msg.requestorId);
   } else {
     // send not found message
     ShignalToUser_PrekeyBundleResponse response;
