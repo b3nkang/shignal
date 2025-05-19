@@ -46,6 +46,11 @@ public:
   void HandleDummy(std::string input);
 
 private:
+  // fixes for concurrency with recvThr and DoJoin
+  std::mutex shignalMtx;
+  std::condition_variable shignalCondVar;
+  std::deque<std::vector<unsigned char>> shignalPrekeyResponses;
+
   std::string id;
   // std::string name;
   Certificate_Message certificate;

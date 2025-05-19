@@ -88,6 +88,7 @@ void UserClient::HandleDummy(std::string input) {
   this->cli_driver->print_warning("okay we goofed, please give your reply again:");
 }
 
+
 /**
  * Starts listening for a peer connection on a given port.
  */
@@ -113,6 +114,7 @@ void UserClient::HandleListen(std::string input) {
         auto keys = this->HandleUserKeyExchangeForInvite(peer);
         this->DoJoinGroup(keys,peer);
         this->cli_driver->print_success("END OF HANDLELISTEN!");
+        this->cli_driver->print_info("Type your command:");
       } catch (const std::exception &e) {
         this->cli_driver->print_warning("Listener error: " + std::string(e.what()));
       }
@@ -148,10 +150,11 @@ void UserClient::HandleInviteMember(std::string input) {
   // peerDriver->connect("localhost", port);
   cli_driver->print_info("Successfully connected on port " + std::to_string(port)+", now attempting KE...");
   auto keys = this->HandleUserKeyExchangeForInvite(peerDriver);
+  this->groupState.dhKeyMap[this->id] = {keys.first, keys.second};
   this->cli_driver->print_success("KE completed, connected to " + userId+", now sending invite...");
 
   this->DoInviteMember(userId, keys, peerDriver);
-  this->cli_driver->print_success("Invite successfully sent to " + userId);
+  this->cli_driver->print_info("End of Invite flow for " + userId);
 }
 
 /**
@@ -332,11 +335,11 @@ UserClient::HandleUserKeyExchangeForInvite(std::shared_ptr<NetworkDriver> driver
 
 
 /**
- * Does Authenticated KE between a PrekeyBundle and the user.
+ * Does Authenticated KE between a PrekeyBundle and the user. // login localhost 1234
  */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
 UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) {
-  this->cli_driver->print_info("In HandleBundleKeyExchange...");
+  this->cli_driver->print_info("In HandleBundleKeyExchange, with user " +this->id+ " from "+ memberId+"'s bundle");
   // vrfy cert is signed by the server
   std::vector<unsigned char> certData = concat_string_and_rsakey(bundle.senderCert.id, bundle.senderCert.verification_key);
   bool certValid = this->crypto_driver->RSA_verify(this->RSA_server_verification_key, certData, bundle.senderCert.server_signature);
@@ -704,25 +707,40 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
       this->cli_driver->print_success("Sent prekey request to ShignalServer for " + memberId);
 
       // wait for prekey bundle response
-      std::vector<unsigned char> respData = this->shignal_driver->read();
+      // std::vector<unsigned char> respData = this->shignal_driver->read();
+      // this->cli_driver->print_success("Received prekey bundle from ShignalServer for " + memberId);
+      // this->cli_driver->print_info("DOJOINGROUP: Received Shignal message of type " + std::to_string(respData[0]));
+      // while (respData[0] != MessageType::ShignalToUser_PrekeyBundleResponse) {
+      //   this->cli_driver->print_warning("DOJOINGROUP: wrong messageType received.");
+      //   this->cli_driver->print_info("DOJOINGROUP: listening again...");
+      //   respData = this->shignal_driver->read();
+      // }      
+      std::unique_lock<std::mutex> lock(shignalMtx);
+      shignalCondVar.wait(lock, [&]() {
+        return !shignalPrekeyResponses.empty();
+      });
+      std::vector<unsigned char> respData = shignalPrekeyResponses.front();
+      shignalPrekeyResponses.pop_front();
+
       ShignalToUser_PrekeyBundleResponse prekeyResp;
       prekeyResp.deserialize(respData);
       int retries = 0;
       // poll retries up to 5 times if prekey not found
       while (!prekeyResp.found && retries < 5) {
         this->cli_driver->print_warning("Prekey not found for new user " + memberId + ". Retrying...");
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        prekeyReq.epochId = this->groupState.epochId;
-        prekeyReq.requestedId = memberId;
-        prekeyReq.requestorId = this->id;
+        this->cli_driver->print_info("DOJOINGROUP: ABORTING IN POLL RETRY");
+        // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        // prekeyReq.epochId = this->groupState.epochId;
+        // prekeyReq.requestedId = memberId;
+        // prekeyReq.requestorId = this->id;
 
-        std::vector<unsigned char> reqData;
-        prekeyReq.serialize(reqData);
-        this->shignal_driver->send(reqData);
+        // std::vector<unsigned char> reqData;
+        // prekeyReq.serialize(reqData);
+        // this->shignal_driver->send(reqData);
 
-        respData = this->shignal_driver->read();
-        prekeyResp.deserialize(respData);
-        retries++;
+        // respData = this->shignal_driver->read();
+        // prekeyResp.deserialize(respData);
+        // retries++;
       }
       if (!prekeyResp.found) {
         this->cli_driver->print_warning("Prekey not found for " + memberId + ". Skipping KE.");
@@ -743,6 +761,13 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
  */
 void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
   // deserialize the masked msg
+  this->cli_driver->print_info("HANDLESHIGNALMSG: recvd message of type " + std::to_string(data[0]));
+
+  if (data[0] != MessageType::Shignal_GenericMessage) {
+    this->cli_driver->print_warning("Invalid Shignal message received.");
+    return;
+  }
+
   Shignal_GenericMessage maskedMsg;
   maskedMsg.deserialize(data);
 
@@ -818,25 +843,32 @@ void UserClient::HandleAddControlMessage(std::vector<unsigned char> decMsg) {
   prekeyReq.serialize(reqData);
   this->shignal_driver->send(reqData);
 
-  std::vector<unsigned char> respData = this->shignal_driver->read();
+  std::unique_lock<std::mutex> lock(shignalMtx);
+  shignalCondVar.wait(lock, [&]() {
+    return !shignalPrekeyResponses.empty();
+  });
+  std::vector<unsigned char> respData = shignalPrekeyResponses.front();
+  shignalPrekeyResponses.pop_front();
+
   ShignalToUser_PrekeyBundleResponse prekeyResp;
   prekeyResp.deserialize(respData);
 
   int retries = 0;
   while (!prekeyResp.found && retries < 5) {
     this->cli_driver->print_warning("Prekey not found for new user " + msg.newUserId + ". Retrying...");
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    prekeyReq.epochId = this->groupState.epochId;
-    prekeyReq.requestedId = msg.newUserId;
-    prekeyReq.requestorId = this->id;
+    this->cli_driver->print_info("handleADDCONTROLMESSAGE: ABORTING IN POLL RETRY");
+    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    // prekeyReq.epochId = this->groupState.epochId;
+    // prekeyReq.requestedId = msg.newUserId;
+    // prekeyReq.requestorId = this->id;
 
-    std::vector<unsigned char> reqData;
-    prekeyReq.serialize(reqData);
-    this->shignal_driver->send(reqData);
+    // std::vector<unsigned char> reqData;
+    // prekeyReq.serialize(reqData);
+    // this->shignal_driver->send(reqData);
 
-    respData = this->shignal_driver->read();
-    prekeyResp.deserialize(respData);
-    retries++;
+    // respData = this->shignal_driver->read();
+    // prekeyResp.deserialize(respData);
+    // retries++;
   }
   if (!prekeyResp.found) {
     this->cli_driver->print_warning("Prekey not found for new user " + msg.newUserId + ". Exiting.");
@@ -974,12 +1006,18 @@ void UserClient::ShignalReceiveThread() {
       return;
     }
 
-    try {
-      this->cli_driver->print_info("Delegating message to HandleShignalMessage...");
-      this->HandleShignalMessage(data);
-      this->cli_driver->print_info("Finished handling Shignal message");
-    } catch (const std::exception &e) {
-      this->cli_driver->print_warning("Failed to handle Shignal message: " + std::string(e.what()));
+    if (data.size() > 0 && data[0] == MessageType::ShignalToUser_PrekeyBundleResponse) {
+      std::lock_guard<std::mutex> lock(shignalMtx);
+      shignalPrekeyResponses.push_back(data);
+      shignalCondVar.notify_all();
+    } else {
+      try {
+        this->cli_driver->print_info("Delegating message to HandleShignalMessage...");
+        this->HandleShignalMessage(data);
+        this->cli_driver->print_info("Finished handling Shignal message");
+      } catch (const std::exception &e) {
+        this->cli_driver->print_warning("Failed to handle Shignal message: " + std::string(e.what()));
+      }
     }
   }
 }
