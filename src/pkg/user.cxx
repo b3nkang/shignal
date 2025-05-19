@@ -633,49 +633,56 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   prekeyReq.serialize(reqData);
   this->shignal_driver->send(reqData);
 
-  std::unique_lock<std::mutex> lock(shignalMtx);
-  if (!shignalCondVar.wait_for(lock, std::chrono::seconds(5), [&]() {
-      return !shignalPrekeyResponses.empty();
-  })) {
-    this->cli_driver->print_warning("Timeout waiting for prekey response.");
-  }
-
   // std::unique_lock<std::mutex> lock(shignalMtx);
-  // shignalCondVar.wait(lock, [&]() {
-  //   return !shignalPrekeyResponses.empty();
-  // });
+  // if (!shignalCondVar.wait_for(lock, std::chrono::seconds(5), [&]() {
+  //     return !shignalPrekeyResponses.empty();
+  // })) {
+  //   this->cli_driver->print_warning("Timeout waiting for prekey response.");
+  // }
+  std::unique_lock<std::mutex> lock(shignalMtx);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
+  shignalCondVar.wait(lock, [&]() {
+    return !shignalPrekeyResponses.empty();
+  });
   std::vector<unsigned char> respData = shignalPrekeyResponses.front();
   shignalPrekeyResponses.pop_front();
 
   ShignalToUser_PrekeyBundleResponse prekeyResp;
   prekeyResp.deserialize(respData);
-
+  ShignalToUser_PrekeyBundleResponse prekeyResp1;
   int retries = 0;
   while (!prekeyResp.found && retries < 5) {
     this->cli_driver->print_warning("Prekey not found for new user " + recipientId + ". Retrying...");
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    this->cli_driver->print_info("l1");
     prekeyReq.epochId = this->groupState.epochId;
     prekeyReq.requestedId = recipientId;
     prekeyReq.requestorId = this->id;
     std::vector<unsigned char> reqData;
+        this->cli_driver->print_info("l2");
     prekeyReq.serialize(reqData);
+        this->cli_driver->print_info("l3");
     this->shignal_driver->send(reqData);
-
-    // std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        this->cli_driver->print_info("l4");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     this->cli_driver->print_info("right before lock...");
     std::unique_lock<std::mutex> lock(shignalMtx);
     this->cli_driver->print_info("right after lock...");
     shignalCondVar.wait(lock, [&]() {
+      this->cli_driver->print_success("IN LOCK RET");
       return !shignalPrekeyResponses.empty();
     });
-    this->cli_driver->print_info("right after lock...");
+    this->cli_driver->print_info("after lock...");
     std::vector<unsigned char> respData = shignalPrekeyResponses.front();
+    this->cli_driver->print_info("l5");
     shignalPrekeyResponses.pop_front();
-    prekeyResp.deserialize(respData);
-
+    this->cli_driver->print_info("l6");
+    prekeyResp1.deserialize(respData);
+    this->cli_driver->print_info("l7");
     retries++;
   }
-  if (!prekeyResp.found) {
+  if (!prekeyResp1.found && !prekeyResp.found) {
     this->cli_driver->print_warning("BAD Prekey not found for new user " + recipientId + ". Exiting.");
     return;
   }
@@ -834,7 +841,7 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
 
   Shignal_GenericMessage maskedMsg;
   maskedMsg.deserialize(data);
-
+  this->cli_driver->print_success("MESSAGE FROM: "+maskedMsg.senderId+ ", SENT TO: "+maskedMsg.recipientId);
   // make sure we have keys for the recipient and get them
   if (!this->groupState.dhKeyMap.contains(maskedMsg.senderId)) {
     this->cli_driver->print_warning("Received message for unknown recipient: " + maskedMsg.senderId);
@@ -968,6 +975,7 @@ void UserClient::DoSendGroupMessage(std::string message) {
       std::vector<unsigned char> msgData = crypto_driver->encrypt_and_tag(memberKeys.first,memberKeys.second,&messagePayload);
       // then send the cipher through GenericMessage
       Shignal_GenericMessage maskedMsg;
+      this->cli_driver->print_success("DoSendGroupMsg: SETTING SENDERID TO " + this->id);
       maskedMsg.senderId = this->id;
       maskedMsg.recipientId = memberId;
       maskedMsg.ciphertext = msgData;
@@ -1072,9 +1080,17 @@ void UserClient::ShignalReceiveThread() {
     }
 
     if (data.size() > 0 && data[0] == MessageType::ShignalToUser_PrekeyBundleResponse) {
+      // // HELPER FOR VISUALIZATION, REMOVE LATER
+      // ShignalToUser_PrekeyBundleResponse prekeyResp;
+      // prekeyResp.deserialize(data);
+      this->cli_driver->print_info("HANDLING BUNDLE RESP");
       std::lock_guard<std::mutex> lock(shignalMtx);
+      this->cli_driver->print_info("lock");
       shignalPrekeyResponses.push_back(data);
+      this->cli_driver->print_info("pushback: "+std::to_string(shignalPrekeyResponses.size())+", front[0]: "+std::to_string(shignalPrekeyResponses.front()[0]));
+      this->cli_driver->print_info("pushback");
       shignalCondVar.notify_all();
+      this->cli_driver->print_info("notifyall");
     } else {
       try {
         this->cli_driver->print_info("Delegating message to HandleShignalMessage...");
