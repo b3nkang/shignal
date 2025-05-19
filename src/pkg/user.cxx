@@ -647,6 +647,7 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   });
   std::vector<unsigned char> respData = shignalPrekeyResponses.front();
   shignalPrekeyResponses.pop_front();
+  lock.unlock();
 
   ShignalToUser_PrekeyBundleResponse prekeyResp;
   prekeyResp.deserialize(respData);
