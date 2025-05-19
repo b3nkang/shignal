@@ -249,6 +249,7 @@ struct MessagePayload : public Serializable {
 
 // this is the encrypted message struct sent from User to Shignal and Shignal to User
 struct Shignal_GenericMessage : public Serializable {
+  std::string senderId;
   std::string recipientId;
   std::vector<unsigned char> ciphertext; // this should be an encrypted MessagePayload
 
