@@ -633,25 +633,25 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   prekeyReq.serialize(reqData);
   this->shignal_driver->send(reqData);
 
-  // std::unique_lock<std::mutex> lock(shignalMtx);
-  // if (!shignalCondVar.wait_for(lock, std::chrono::seconds(5), [&]() {
-  //     return !shignalPrekeyResponses.empty();
-  // })) {
-  //   this->cli_driver->print_warning("Timeout waiting for prekey response.");
-  // }
   std::unique_lock<std::mutex> lock(shignalMtx);
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+  if (!shignalCondVar.wait_for(lock, std::chrono::seconds(5), [&]() {
+      return !shignalPrekeyResponses.empty();
+  })) {
+    this->cli_driver->print_warning("Timeout waiting for prekey response.");
+  }
+  // std::unique_lock<std::mutex> lock(shignalMtx);
+  //   std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
-  shignalCondVar.wait(lock, [&]() {
-    return !shignalPrekeyResponses.empty();
-  });
+  // shignalCondVar.wait(lock, [&]() {
+  //   return !shignalPrekeyResponses.empty();
+  // });
   std::vector<unsigned char> respData = shignalPrekeyResponses.front();
   shignalPrekeyResponses.pop_front();
   lock.unlock();
 
   ShignalToUser_PrekeyBundleResponse prekeyResp;
   prekeyResp.deserialize(respData);
-  ShignalToUser_PrekeyBundleResponse prekeyResp1;
+  // ShignalToUser_PrekeyBundleResponse prekeyResp1;
   int retries = 0;
   while (!prekeyResp.found && retries < 5) {
     this->cli_driver->print_warning("Prekey not found for new user " + recipientId + ". Retrying...");
@@ -668,22 +668,29 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
         this->cli_driver->print_info("l4");
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     this->cli_driver->print_info("right before lock...");
+    // std::unique_lock<std::mutex> lock(shignalMtx);
+    // this->cli_driver->print_info("right after lock...");
+    // shignalCondVar.wait(lock, [&]() {
+    //   this->cli_driver->print_success("IN LOCK RET");
+    //   return !shignalPrekeyResponses.empty();
+    // }); 
     std::unique_lock<std::mutex> lock(shignalMtx);
-    this->cli_driver->print_info("right after lock...");
-    shignalCondVar.wait(lock, [&]() {
+    if (!shignalCondVar.wait_for(lock, std::chrono::seconds(5), [&]() {
       this->cli_driver->print_success("IN LOCK RET");
-      return !shignalPrekeyResponses.empty();
-    });
+        return !shignalPrekeyResponses.empty();
+    })) {
+      this->cli_driver->print_warning("Timeout waiting for prekey response.");
+    }
     this->cli_driver->print_info("after lock...");
     std::vector<unsigned char> respData = shignalPrekeyResponses.front();
     this->cli_driver->print_info("l5");
     shignalPrekeyResponses.pop_front();
     this->cli_driver->print_info("l6");
-    prekeyResp1.deserialize(respData);
+    prekeyResp.deserialize(respData);
     this->cli_driver->print_info("l7");
     retries++;
   }
-  if (!prekeyResp1.found && !prekeyResp.found) {
+  if (!prekeyResp.found) {
     this->cli_driver->print_warning("BAD Prekey not found for new user " + recipientId + ". Exiting.");
     return;
   }
