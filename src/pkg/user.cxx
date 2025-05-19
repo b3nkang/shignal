@@ -150,7 +150,7 @@ void UserClient::HandleInviteMember(std::string input) {
   // peerDriver->connect("localhost", port);
   cli_driver->print_info("Successfully connected on port " + std::to_string(port)+", now attempting KE...");
   auto keys = this->HandleUserKeyExchangeForInvite(peerDriver);
-  this->groupState.dhKeyMap[this->id] = {keys.first, keys.second};
+  this->groupState.dhKeyMap[userId] = {keys.first, keys.second};
   this->cli_driver->print_success("KE completed, connected to " + userId+", now sending invite...");
 
   this->DoInviteMember(userId, keys, peerDriver);
@@ -610,6 +610,7 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
       std::vector<unsigned char> addMsgData = crypto_driver->encrypt_and_tag(memberKeys.first,memberKeys.second,&addMsg);
       // then send the cipher through GenericMessage
       Shignal_GenericMessage maskedAddMsg;
+      maskedAddMsg.senderId = this->id;
       maskedAddMsg.recipientId = recipientId;
       maskedAddMsg.ciphertext = addMsgData;
       std::vector<unsigned char> maskedAddMsgData;
@@ -621,6 +622,69 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   }
   // TODO: admin also needs to upload prekey bundle to ShignalServer
   // Admin also needs to poll server to get new user's prekey bundle
+
+  // poll server for new user's prekey bundle
+  UserToShignal_RequestPrekeyBundle prekeyReq;
+  prekeyReq.epochId = this->groupState.epochId;
+  prekeyReq.requestedId = recipientId;
+  prekeyReq.requestorId = this->id;
+
+  std::vector<unsigned char> reqData;
+  prekeyReq.serialize(reqData);
+  this->shignal_driver->send(reqData);
+
+  std::unique_lock<std::mutex> lock(shignalMtx);
+  if (!shignalCondVar.wait_for(lock, std::chrono::seconds(5), [&]() {
+      return !shignalPrekeyResponses.empty();
+  })) {
+    this->cli_driver->print_warning("Timeout waiting for prekey response.");
+  }
+
+  // std::unique_lock<std::mutex> lock(shignalMtx);
+  // shignalCondVar.wait(lock, [&]() {
+  //   return !shignalPrekeyResponses.empty();
+  // });
+  std::vector<unsigned char> respData = shignalPrekeyResponses.front();
+  shignalPrekeyResponses.pop_front();
+
+  ShignalToUser_PrekeyBundleResponse prekeyResp;
+  prekeyResp.deserialize(respData);
+
+  int retries = 0;
+  while (!prekeyResp.found && retries < 5) {
+    this->cli_driver->print_warning("Prekey not found for new user " + recipientId + ". Retrying...");
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    prekeyReq.epochId = this->groupState.epochId;
+    prekeyReq.requestedId = recipientId;
+    prekeyReq.requestorId = this->id;
+    std::vector<unsigned char> reqData;
+    prekeyReq.serialize(reqData);
+    this->shignal_driver->send(reqData);
+
+    // std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    this->cli_driver->print_info("right before lock...");
+    std::unique_lock<std::mutex> lock(shignalMtx);
+    this->cli_driver->print_info("right after lock...");
+    shignalCondVar.wait(lock, [&]() {
+      return !shignalPrekeyResponses.empty();
+    });
+    this->cli_driver->print_info("right after lock...");
+    std::vector<unsigned char> respData = shignalPrekeyResponses.front();
+    shignalPrekeyResponses.pop_front();
+    prekeyResp.deserialize(respData);
+
+    retries++;
+  }
+  if (!prekeyResp.found) {
+    this->cli_driver->print_warning("BAD Prekey not found for new user " + recipientId + ". Exiting.");
+    return;
+  }
+
+  // atp we must have the prekey, now do authenticated KE
+  this->cli_driver->print_success("Found prekey bundle for new user " + recipientId + ", now doing authenticated KE...");
+  auto keys2 = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, recipientId);
+  this->groupState.dhKeyMap[recipientId] = keys2;
+  this->cli_driver->print_success("EODoInviteMember: Authenticated KE with new user " + recipientId + " complete.");
 }
 
 
@@ -772,11 +836,11 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
   maskedMsg.deserialize(data);
 
   // make sure we have keys for the recipient and get them
-  if (!this->groupState.dhKeyMap.contains(maskedMsg.recipientId)) {
-    this->cli_driver->print_warning("Received message for unknown recipient: " + maskedMsg.recipientId);
+  if (!this->groupState.dhKeyMap.contains(maskedMsg.senderId)) {
+    this->cli_driver->print_warning("Received message for unknown recipient: " + maskedMsg.senderId);
     return;
   }
-  auto [aesKey, hmacKey] = this->groupState.dhKeyMap.at(maskedMsg.recipientId);
+  auto [aesKey, hmacKey] = this->groupState.dhKeyMap.at(maskedMsg.senderId);
 
   // dec and vrfy
   std::vector<unsigned char> decMsg;
@@ -904,6 +968,7 @@ void UserClient::DoSendGroupMessage(std::string message) {
       std::vector<unsigned char> msgData = crypto_driver->encrypt_and_tag(memberKeys.first,memberKeys.second,&messagePayload);
       // then send the cipher through GenericMessage
       Shignal_GenericMessage maskedMsg;
+      maskedMsg.senderId = this->id;
       maskedMsg.recipientId = memberId;
       maskedMsg.ciphertext = msgData;
       std::vector<unsigned char> maskedMsgData;
