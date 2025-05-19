@@ -24,6 +24,7 @@ void Shignal_GenericMessage::serialize(std::vector<unsigned char> &data) {
   data.push_back((char)MessageType::Shignal_GenericMessage);
   
   // Add fields in order
+  put_string(this->senderId, data);
   put_string(this->recipientId, data);
   
   // For ciphertext (which is a vector<unsigned char>)
@@ -42,6 +43,7 @@ int Shignal_GenericMessage::deserialize(std::vector<unsigned char> &data) {
   int n = 1;
   
   std::string ciphertext_str;
+  n += get_string(&this->senderId, data, n);
   n += get_string(&this->recipientId, data, n);
   n += get_string(&ciphertext_str, data, n);
   
