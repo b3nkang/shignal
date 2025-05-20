@@ -51,3 +51,4 @@ snipped/
 .vscode
 .DS_Store
 .devcontainer
+*.cpp
