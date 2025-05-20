@@ -7,9 +7,9 @@ Shignal is a feeble attempt in applied cryptography to emulate the security prot
 
 The project is written in C++ with CryptoPP and, beyond the immediate Shignal functionality, also features manual implementations of AES encryption, decryption, HMAC tagging, signatures and certificates, and login and registration processes that use salting, peppering, and seeding. Extensive networking and concurrency work has also been completed to wire up all parties within the codebase.
 
-## Shignal Structures and Assumptions
+## Shignal Workflows and Assumptions
 ### Intuition
-At a high level, in order to support offline messaging, a centralized server that stores user messages is inevitable (ours is the ShignalServer). However, in order to obscure group structure and other characteristics to the server, it will only store user-to-user messages, acting as a "forwarder" between one user to another. As a result, all group state information is sorted by users themselves, locally, and must individually encrypt and send each message to every group member. All our server sees is the sender and receiver—information we unfortunately cannot abstract away in any practical implementation—but that is it. All messages of any kind—regular messages, admin messages, and add member messages, for example—appear to the server as random garbage, and nothing else can be gleaned about the hierarchy of the group (excluding side channel attacks like fanout patterns, but which are remedied with batching, random traffic, and delays which we deem out of scope).
+At a high level, in order to support offline messaging, a centralized server that stores user messages is inevitable (ours is the ShignalServer). However, in order to obscure group structure and other characteristics to the server, it will only store user-to-user messages, acting as a "forwarder" between one user to another. As a result, all group state information is sorted by users themselves locally, and users must individually encrypt and send each message to every group member. All our server sees is the sender and receiver—information we unfortunately cannot abstract away in any practical implementation—but that is it. All messages of any kind—regular messages, admin messages, and add member messages, for example—appear to the server as random garbage, and nothing else can be gleaned about the hierarchy of the group (excluding side channel attacks like fanout patterns, but which are remedied with batching, random traffic, and delays which we deem out of scope).
 
 ### User-to-Shignal Communication
 As is consistent with Rösler, Mainka, and Schwenk (2018), we assume the underlying communication protocol between the user and the ShignalServer is secure, through something like TLS. Our focus is on the security and integrity of messages between the users themselves. 
@@ -151,3 +151,26 @@ Note well:
 
 1. lots of gibberish will be printed from the Shignal Server after it accepts the new connections, but for the purposes of the user, the logs are not relevant.
 2. the command `register localhost 1234` should be replaced by `login localhost 1234` in all successive runs within a given terminal instance after the first.
+
+## Persisting/Known Issues, and Possible Fixes
+
+- **user_ids sent in the clear to the server**
+    - server knows the sender and receiver of a message
+    - observer can easily build a communication graph to figure out the group
+    - fix: ephemeral rotating IDs with a lookup table (ran out of time/scope blew up)
+- **messages to all other gc members sent at the same time**
+    - server is able to deduce group structure through fanout patterns
+    - could probably side channel groups over time
+    - fix: batch messages and random delays
+    - fix: dummy messages that do nothing
+- **prekey bundle on server is still insecure**
+    - prekey can be tampered with, ideally needs to be signed, replay attack weakness
+    - fix: implement X3DH (out of scope)
+- **epoch_id for facilitating rekeying without synchronization issues leaks info**
+    - the server can tell when rekeying happens begins (and who might be involved)
+    - we try to avoid this by having garbage epoch_ids also as noise
+    - improved fix: abstract away Prekey_Message into generic Control_Message
+    - fix: batching, delays, other tactics similar to the gc timing issue
+- **no timestamps supported currently, to add**
+- **very long term goal: add ratcheting, implement lightweight TLS, old epoch eviction**
+
