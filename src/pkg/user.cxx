@@ -191,15 +191,6 @@ void UserClient::HandleSendGroupMessage(std::string input) {
   this->DoSendGroupMessage(message);
 }
 
-/**
- * Diffie-Hellman key exchange with server. This function should:
- * 1) Generate a keypair, a, g^a and send it to the server.
- * 2) Receive a public value (g^a, g^b) from the server and verify its
- * signature.
- * 3) Verify that the public value the server received is g^a.
- * 4) Generate a DH shared key and generate AES and HMAC keys.
- * @return tuple of AES_key, HMAC_key
- */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
 UserClient::HandleServerKeyExchange() {
   DH DH_obj;
@@ -234,16 +225,6 @@ UserClient::HandleServerKeyExchange() {
   return {AESkey, HMACkey};
 }
 
-/**
- * Diffie-Hellman key exchange with another user. This function shuold:
- * 1) Generate a keypair, a, g^a, signs it, and sends it to the other user.
- *    Use concat_byteblock_and_cert to sign the message.
- * 2) Receive a public value from the other user and verifies its signature and
- * certificate.
- * 3) Generate a DH shared key and generate AES and HMAC keys.
- * 4) Store the other user's verification key in RSA_remote_verification_key.
- * @return tuple of AES_key, HMAC_key
- */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
 UserClient::HandleUserKeyExchange() {
   DH DH_obj;
@@ -335,7 +316,7 @@ UserClient::HandleUserKeyExchangeForInvite(std::shared_ptr<NetworkDriver> driver
 
 
 /**
- * Does Authenticated KE between a PrekeyBundle and the user. // login localhost 1234
+ * Does Authenticated KE between a PrekeyBundle and the user.
  */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
 UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) {
@@ -393,21 +374,7 @@ void UserClient::HandleLoginOrRegister(std::string input) {
   this->cli_driver->print_success("Successfully registered/logged in as user: " + this->id);
 }
 
-/**
- * User login or register. This function should:
- * 1) Handles key exchange with the server.
- * 2) Tells the server our ID and intent.
- * 3) Receives a salt from the server.
- * 4) Generates and sends a hashed and salted password.
- * 5) (if registering) Receives a PRG seed from the server, store in
- * this->prg_seed.
- * 6) Generates and sends a 2FA response.
- * 7) Generates a RSA keypair, and send vk to the server for signing.
- * 8) Receives and save cert in this->certificate.
- * 9) Receives and saves the keys, certificate, and prg seed.
- * Remember to store RSA keys in this->RSA_signing_key and
- * this->RSA_verification_key
- */
+
 void UserClient::DoLoginOrRegister(std::string input) {
   bool isRegistering = (input == "register");
   std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys = HandleServerKeyExchange();
@@ -981,14 +948,7 @@ void UserClient::DoSendGroupMessage(std::string message) {
   }
 }
 
-/**
- * 
- */
-/**
- * Handles communicating with another user. This function
- * 1) Prompts the CLI to see if we're registering or logging in.
- * 2) Handles key exchange with the other user.
- */
+
 void UserClient::HandleUser(std::string input) {
   // Handle if connecting or listening; parse user input.
   std::vector<std::string> args = string_split(input, ' ');
@@ -1014,8 +974,6 @@ void UserClient::HandleUser(std::string input) {
 
   // Exchange keys.
   auto keys = this->HandleUserKeyExchange();
-
-  // TODO: don't forget we need to save the keys in the dh_keymap once we have it
 
   // Clear the screen
   this->cli_driver->init();

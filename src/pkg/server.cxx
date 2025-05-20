@@ -116,13 +116,6 @@ void ServerClient::ListenForConnections(int port) {
   }
 }
 
-/**
- * Handle keygen and handle either logins or registrations. This function
- * should: 1) Handle key exchange with the user.
- * 2) Reads a UserToServer_IDPrompt_Message and determines whether the user is
- * attempting to login or register and calls the corresponding function.
- * 3) Disconnect the network_driver, then return true.
- */
 bool ServerClient::HandleConnection(
     std::shared_ptr<NetworkDriver> network_driver,
     std::shared_ptr<CryptoDriver> crypto_driver) {
@@ -165,13 +158,6 @@ bool ServerClient::HandleConnection(
   }
 }
 
-/**
- * Diffie-Hellman key exchange. This function should:
- * 1) Receive the user's public value
- * 2) Generate and send a signed DH public value
- * 2) Generate a DH shared key and generate AES and HMAC keys.
- * @return tuple of AES_key, HMAC_key
- */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
 ServerClient::HandleKeyExchange(std::shared_ptr<NetworkDriver> network_driver,
                                 std::shared_ptr<CryptoDriver> crypto_driver) {
@@ -206,16 +192,7 @@ ServerClient::HandleKeyExchange(std::shared_ptr<NetworkDriver> network_driver,
   return {AESkey,HMACkey};
 }
 
-/**
- * Log in the given user. This function should:
- * 1) Find the user in the database.
- * 2) Send the user's salt and receive a hash of the salted password.
- * 3) Try all possible peppers until one succeeds.
- * 4) Receive a 2FA response and verify it was generated in the last 60 seconds.
- * 5) Receive the user's verification key, and sign it to create a certificate.
- * @param id id of the user logging in
- * @param keys tuple of AES_key, HMAC_key corresponding to this session
- */
+
 void ServerClient::HandleLogin(
     std::shared_ptr<NetworkDriver> network_driver,
     std::shared_ptr<CryptoDriver> crypto_driver, std::string id,
@@ -301,18 +278,7 @@ void ServerClient::HandleLogin(
   network_driver->send(certificateData);
 }
 
-/**
- * Register the given user. This function should:
- * 1) Confirm that the user in not the database.
- * 2) Generate and send a salt and receives a hash of the salted password.
- * 3) Generate a pepper and store a second hash of the response + pepper.
- * 4) Generate and sends a PRG seed to the user
- * 4) Receive a 2FA response and verify it was generated in the last 60 seconds.
- * 5) Receive the user's verification key, and sign it to create a certificate.
- * 6) Store the user in the database.
- * @param id id of the user logging in
- * @param keys tuple of AES_key, HMAC_key corresponding to this session
- */
+
 void ServerClient::HandleRegister(
     std::shared_ptr<NetworkDriver> network_driver,
     std::shared_ptr<CryptoDriver> crypto_driver, std::string id,
