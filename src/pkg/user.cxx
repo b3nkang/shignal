@@ -180,12 +180,16 @@ void UserClient::HandleJoinGroup(std::string input) {
  * Lightweight wrapper that parses and calls DoSendGroupMessage()
  */
 void UserClient::HandleSendGroupMessage(std::string input) {
-  std::vector<std::string> args = string_split(input, ' ');
-  if (args.size() != 2) {
+  const std::string prefix = "send ";
+  if (input.substr(0, prefix.size()) != prefix) {
     this->cli_driver->print_warning("Invalid args, usage: send <message>");
     return;
   }
-  std::string message = args[1];
+  std::string message = input.substr(prefix.size());
+  if (message.empty()) {
+    this->cli_driver->print_warning("Cannot send empty message.");
+    return;
+  }
   this->DoSendGroupMessage(message);
 }
 
