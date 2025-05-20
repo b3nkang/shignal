@@ -612,10 +612,11 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
       // then send the cipher through GenericMessage
       Shignal_GenericMessage maskedAddMsg;
       maskedAddMsg.senderId = this->id;
-      maskedAddMsg.recipientId = recipientId;
+      maskedAddMsg.recipientId = member;
       maskedAddMsg.ciphertext = addMsgData;
       std::vector<unsigned char> maskedAddMsgData;
       maskedAddMsg.serialize(maskedAddMsgData);
+      this->cli_driver->print_success("Sending AddControlMessage to " + member);
       shignal_driver->send(maskedAddMsgData);
     } else {
       this->cli_driver->print_info("Skipping sending AddControlMessage to self or new user.");
@@ -875,10 +876,14 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
 
   if (decMsg[0] == MessageType::MessagePayload) {
     // this is a normal message, handle normally
+    this->cli_driver->print_info("handling message payload");
     HandleMessagePayload(decMsg);
   } else if (decMsg[0] == MessageType::AdminToUser_Add_ControlMessage) {
     // this is a control message, handle
-    HandleAddControlMessage(decMsg);
+    this->cli_driver->print_info("handling add control message");
+    std::thread([this, decMsg]() {
+        this->HandleAddControlMessage(decMsg);
+    }).detach();
   } else {
     this->cli_driver->print_warning("Unknown message type received from " + maskedMsg.recipientId+". Exiting handling of ShignalMessage.");
     return;
@@ -912,57 +917,53 @@ void UserClient::HandleAddControlMessage(std::vector<unsigned char> decMsg) {
     this->cli_driver->print_warning("Invalid admin signature on Add_ControlMessage");
     return;
   }
-  this->cli_driver->print_success("Verified Add_ControlMessage for new user: " + msg.newUserId);
+  this->cli_driver->print_success("Received Add_ControlMessage for new user: " + msg.newUserId);
 
-  // get prekey from ShignalServer
+  // poll for new user's prekey bundle from server
+  std::string recipientId = msg.newUserId;
   UserToShignal_RequestPrekeyBundle prekeyReq;
   prekeyReq.epochId = this->groupState.epochId;
   prekeyReq.requestedId = msg.newUserId;
   prekeyReq.requestorId = this->id;
+  ShignalToUser_PrekeyBundleResponse prekeyResp;
 
   std::vector<unsigned char> reqData;
   prekeyReq.serialize(reqData);
-  this->shignal_driver->send(reqData);
-
-  std::unique_lock<std::mutex> lock(shignalMtx);
-  shignalCondVar.wait(lock, [&]() {
-    return !shignalPrekeyResponses.empty();
-  });
-  std::vector<unsigned char> respData = shignalPrekeyResponses.front();
-  shignalPrekeyResponses.pop_front();
-
-  ShignalToUser_PrekeyBundleResponse prekeyResp;
-  prekeyResp.deserialize(respData);
-
   int retries = 0;
-  while (!prekeyResp.found && retries < 5) {
-    this->cli_driver->print_warning("Prekey not found for new user " + msg.newUserId + ". Retrying...");
-    this->cli_driver->print_info("handleADDCONTROLMESSAGE: ABORTING IN POLL RETRY");
-    // std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    // prekeyReq.epochId = this->groupState.epochId;
-    // prekeyReq.requestedId = msg.newUserId;
-    // prekeyReq.requestorId = this->id;
+  bool found = false;
+  while (retries < 5 && !found) {
+    this->shignal_driver->send(reqData);
 
-    // std::vector<unsigned char> reqData;
-    // prekeyReq.serialize(reqData);
-    // this->shignal_driver->send(reqData);
-
-    // respData = this->shignal_driver->read();
-    // prekeyResp.deserialize(respData);
-    // retries++;
+    std::unique_lock<std::mutex> lock(shignalMtx);
+    bool got_msg = shignalCondVar.wait_for(lock, std::chrono::seconds(5), [&]() {
+      return !shignalPrekeyResponses.empty();
+    });
+    if (!got_msg) {
+      this->cli_driver->print_warning("Timeout waiting for prekey response.");
+      retries++;
+      continue;
+    }
+    std::vector<unsigned char> respData = shignalPrekeyResponses.front();
+    shignalPrekeyResponses.pop_front();
+    lock.unlock();
+    try {
+      prekeyResp.deserialize(respData);
+      found = prekeyResp.found;
+    } catch (...) {
+      this->cli_driver->print_warning("Deserialization failed.");
+    }
   }
   if (!prekeyResp.found) {
-    this->cli_driver->print_warning("Prekey not found for new user " + msg.newUserId + ". Exiting.");
+    this->cli_driver->print_warning("BAD Prekey not found for new user " + recipientId + ". Exiting.");
     return;
   }
-
   // atp we must have the prekey, now do authenticated KE
-  auto keys = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, msg.newUserId);
-  this->groupState.dhKeyMap[msg.newUserId] = keys;
+  this->cli_driver->print_success("Found prekey bundle for new user " + recipientId + ", now doing authenticated KE...");
+  auto keys2 = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, recipientId);
+  this->groupState.dhKeyMap[recipientId] = keys2;
   // add the new user to the group state
   this->groupState.members.insert(msg.newUserId);
-
-  this->cli_driver->print_success("Completed authenticated KE with new user " + msg.newUserId);
+  this->cli_driver->print_success("EOAddControlMsg: Authenticated KE with new user " + recipientId + " complete.");
 }
 
 // =================================================================
