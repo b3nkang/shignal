@@ -253,9 +253,6 @@ UserClient::HandleUserKeyExchange() {
   SecByteBlock DHpk;
   std::tie(DH_obj,DHsk,DHpk) = this->crypto_driver->DH_initialize();
 
-  // this->DH_pk = DHpk;
-  // this->DH_sk = DHsk;
-
   std::vector<unsigned char> toSign = concat_byteblock_and_cert(DHpk,this->certificate);
   std::string sig = crypto_driver->RSA_sign(this->RSA_signing_key,toSign);
 
@@ -904,7 +901,8 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
 void UserClient::HandleMessagePayload(std::vector<unsigned char> decMsg) {
   MessagePayload msg;
   msg.deserialize(decMsg);
-  this->cli_driver->print_success("From " + msg.senderId + ": " + msg.msgContent);
+  this->cli_driver->print_success("From " + msg.senderId + ": ");
+  std::cout << msg.msgContent << std::endl;
 }
 
 /**
