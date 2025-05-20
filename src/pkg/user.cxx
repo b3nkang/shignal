@@ -107,13 +107,13 @@ void UserClient::HandleListen(std::string input) {
     this->cli_driver->print_success("Listening for peer connections on port " + std::to_string(port));
 
     std::thread([this, listener]() {
-      this->cli_driver->print_info("Waiting for peer connection...");
+      // this->cli_driver->print_info("Waiting for peer connection...");
       try {
         auto peer = listener->accept();
-        this->cli_driver->print_success("Received peer connection!");
+        // this->cli_driver->print_success("Received peer connection!");
         auto keys = this->HandleUserKeyExchangeForInvite(peer);
         this->DoJoinGroup(keys,peer);
-        this->cli_driver->print_success("END OF HANDLELISTEN!");
+        // this->cli_driver->print_success("END OF HANDLELISTEN!");
         this->cli_driver->print_info("Type your command:");
       } catch (const std::exception &e) {
         this->cli_driver->print_warning("Listener error: " + std::string(e.what()));
@@ -138,7 +138,7 @@ void UserClient::HandleInviteMember(std::string input) {
   int port = std::stoi(args[2]);
 
   std::shared_ptr<NetworkDriver> peerDriver = std::make_shared<NetworkDriverImpl>();
-  cli_driver->print_info("Attempting to connect on port " + std::to_string(port));
+  // cli_driver->print_info("Attempting to connect on port " + std::to_string(port));
   for (int i = 0; i < 10; ++i) {
     try {
       peerDriver->connect("localhost", port);
@@ -147,14 +147,12 @@ void UserClient::HandleInviteMember(std::string input) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
   }
-  // peerDriver->connect("localhost", port);
-  cli_driver->print_info("Successfully connected on port " + std::to_string(port)+", now attempting KE...");
+  // cli_driver->print_info("Successfully connected on port " + std::to_string(port)+", now attempting KE...");
   auto keys = this->HandleUserKeyExchangeForInvite(peerDriver);
-  // this->groupState.dhKeyMap[userId] = {keys.first, keys.second};
-  this->cli_driver->print_success("KE completed, connected to " + userId+", now sending invite...");
+  // this->cli_driver->print_success("KE completed, connected to " + userId+", now sending invite...");
 
   this->DoInviteMember(userId, keys, peerDriver);
-  this->cli_driver->print_info("End of Invite flow for " + userId);
+  // this->cli_driver->print_info("End of Invite flow for " + userId);
 }
 
 /**
@@ -341,15 +339,15 @@ UserClient::HandleUserKeyExchangeForInvite(std::shared_ptr<NetworkDriver> driver
  */
 std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock>
 UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) {
-  this->cli_driver->print_info("In HandleBundleKeyExchange, with user " +this->id+ " from "+ memberId+"'s bundle");
+  // this->cli_driver->print_info("In HandleBundleKeyExchange, with user " +this->id+ " from "+ memberId+"'s bundle");
   // vrfy cert is signed by the server
   std::vector<unsigned char> certData = concat_string_and_rsakey(bundle.senderCert.id, bundle.senderCert.verification_key);
   bool certValid = this->crypto_driver->RSA_verify(this->RSA_server_verification_key, certData, bundle.senderCert.server_signature);
   if (!certValid) {
     throw std::runtime_error("HandlePrekeyBundleExchange: Invalid certificate");
   }
-  this->cli_driver->print_success("Certificate verified, now verifying user signature...");
-  // sanity check, memberId matches the cert ID
+  // this->cli_driver->print_success("Certificate verified, now verifying user signature...");
+  // // sanity check, memberId matches the cert ID
   if (bundle.senderCert.id != memberId) {
     throw std::runtime_error("HandlePrekeyBundleExchange: Certificate ID does not match expected memberId");
   }
@@ -358,7 +356,7 @@ UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) 
   if (!userValid) {
     throw std::runtime_error("HandlePrekeyBundleExchange: Invalid DH signature from bundle");
   }
-  this->cli_driver->print_success("User signature verified, now generating shared key...");
+  // this->cli_driver->print_success("User signature verified, now generating shared key...");
 
   if (bundle.senderDhPk.SizeInBytes() == 0) {
     throw std::runtime_error("senderDhPk is empty; cannot generate shared key");
@@ -382,7 +380,7 @@ UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) 
  */
 void UserClient::HandleLoginOrRegister(std::string input) {
   // Connect to server and check if we are registering.
-  this->cli_driver->print_info("In HandleLoginOrRegister...");
+  // this->cli_driver->print_info("In HandleLoginOrRegister...");
   std::vector<std::string> input_split = string_split(input, ' ');
   if (input_split.size() != 3) {
     this->cli_driver->print_left("invalid number of arguments.");
@@ -392,7 +390,7 @@ void UserClient::HandleLoginOrRegister(std::string input) {
   int port = std::stoi(input_split[2]);
   this->network_driver->connect(address, port);
   this->DoLoginOrRegister(input_split[0]);
-  this->cli_driver->print_success("Registered/logged in as user: " + this->id);
+  this->cli_driver->print_success("Successfully registered/logged in as user: " + this->id);
 }
 
 /**
@@ -484,7 +482,7 @@ void UserClient::DoLoginOrRegister(std::string input) {
   SaveRSAPublicKey(this->user_config.user_verification_key_path,this->RSA_verification_key);
   SavePRGSeed(this->user_config.user_prg_seed_path,this->prg_seed);
   this->id = this->user_config.user_username;
-  this->cli_driver->print_success("Successfully registered/logged in as " + this->id);
+  // this->cli_driver->print_success("Registered/logged in as " + this->id);
 
   // send notification to ShignalServer that user is online
   if (!this->shignal_driver->connected()) {
@@ -528,7 +526,7 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   } else {
     // check if this user is the admin
     if (this->groupState.adminId == this->id) {
-      this->cli_driver->print_success("You are attempting to send an invite to: "+recipientId);
+      // this->cli_driver->print_success("You are attempting to send an invite to: "+recipientId);
     } else {
       this->cli_driver->print_warning("You are not the admin of this group chat. You do not have permission to send invites.");
       return;
@@ -539,13 +537,13 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
     this->cli_driver->print_warning("Recipient is already in the group chat.");
     return;
   }
-  this->cli_driver->print_info("Now inside of DoInviteMember workflow..");
+  // this->cli_driver->print_info("Now inside of DoInviteMember workflow..");
 
   // admin uploads their prekey bundle to the server
   PrekeyBundle bundle;
   bundle.senderSignature = this->crypto_driver->RSA_sign(this->RSA_signing_key,concat_byteblock_and_cert(this->DH_pk,this->certificate));
   bundle.senderDhPk = this->DH_pk;
-  this->cli_driver->print_info("current sender dh pk: " + byteblock_to_string(this->DH_pk));
+  // this->cli_driver->print_info("current sender dh pk: " + byteblock_to_string(this->DH_pk));
   bundle.senderVk = this->RSA_verification_key;
   bundle.senderCert = this->certificate;
 
@@ -554,15 +552,15 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   prekeyMsg.userId = this->id;
   prekeyMsg.prekeyBundle = bundle;
 
-  this->cli_driver->print_info("Attempting to send prekey bundle to ShignalServer...");
+  // this->cli_driver->print_info("Attempting to send prekey bundle to ShignalServer...");
   std::vector<unsigned char> prekeyData;
   prekeyMsg.serialize(prekeyData);
   this->shignal_driver->send(prekeyData);
-  this->cli_driver->print_success("Admin bundle sent to ShignalServer.");
+  // this->cli_driver->print_success("Admin bundle sent to ShignalServer.");
 
   // send the invite message
   AdminToUser_InviteMessage inviteMsg;
-  inviteMsg.inviteMsg = "You have been invited to join a group chat! Do you accept?";
+  inviteMsg.inviteMsg = "You have been invited to join a group chat!";
   std::vector<unsigned char> inviteData = crypto_driver->encrypt_and_tag(keys.first,keys.second,&inviteMsg);
   userDriver->send(inviteData);
   this->cli_driver->print_info("Invite message sent to " + recipientId);
@@ -575,12 +573,12 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
 
   UserToAdmin_ReplyMessage replyMsg;
   replyMsg.deserialize(decReply);
-  this->cli_driver->print_info("Received reply from " + recipientId);
+  // this->cli_driver->print_info("Received reply from " + recipientId);
 
   if (replyMsg.accept) {
-    cli_driver->print_success(recipientId + " accepted the invite!");
-    // send the group info to the recipient
-    // importantly, make a clone so that we do not leak Admin dh_keymap to newUser
+    // cli_driver->print_success(recipientId + " accepted the invite!");
+    // // send the group info to the recipient
+    // // importantly, make a clone so that we do not leak Admin dh_keymap to newUser
     GroupState_Message safeGroupState;
     safeGroupState.groupId = this->groupState.groupId;
     safeGroupState.epochId = this->groupState.epochId;
@@ -595,7 +593,7 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
     cli_driver->print_warning(recipientId + " rejected the invite.");
     return;
   }
-  this->cli_driver->print_success("Group info sent to " + recipientId);
+  // this->cli_driver->print_success("Group info sent to " + recipientId);
 
   // update GroupState_Message for admin at the end
   this->groupState.members.insert(recipientId);
@@ -603,7 +601,7 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   addMsg.newUserId = recipientId;
   addMsg.groupId = this->groupState.groupId;
   addMsg.adminSignature = this->crypto_driver->RSA_sign(this->RSA_signing_key,concat_string_and_rsakey(this->groupState.groupId, this->groupState.adminVerificationKey));
-  this->cli_driver->print_success("Updated admin's local group state, now attempting to send AddControlMessage to all members of the group chat.");
+  // this->cli_driver->print_success("Updated admin's local group state, now attempting to send AddControlMessage to all members of the group chat.");
 
   for (auto member : this->groupState.members) {
     if (member != this->id && member != recipientId) {
@@ -617,10 +615,10 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
       maskedAddMsg.ciphertext = addMsgData;
       std::vector<unsigned char> maskedAddMsgData;
       maskedAddMsg.serialize(maskedAddMsgData);
-      this->cli_driver->print_success("Sending AddControlMessage to " + member);
+      // this->cli_driver->print_success("Sending AddControlMessage to " + member);
       shignal_driver->send(maskedAddMsgData);
     } else {
-      this->cli_driver->print_info("Skipping sending AddControlMessage to self or new user.");
+      // this->cli_driver->print_info("Skipping sending AddControlMessage to self or new user.");
     }
   }
   // TODO: admin also needs to upload prekey bundle to ShignalServer
@@ -657,40 +655,26 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   // ShignalToUser_PrekeyBundleResponse prekeyResp1;
   int retries = 0;
   while (!prekeyResp.found && retries < 5) {
-    this->cli_driver->print_warning("Prekey not found for new user " + recipientId + ". Retrying...");
+    // this->cli_driver->print_warning("Prekey not found for new user " + recipientId + ". Retrying...");
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    this->cli_driver->print_info("l1");
     prekeyReq.epochId = this->groupState.epochId;
     prekeyReq.requestedId = recipientId;
     prekeyReq.requestorId = this->id;
     std::vector<unsigned char> reqData;
-        this->cli_driver->print_info("l2");
     prekeyReq.serialize(reqData);
-        this->cli_driver->print_info("l3");
     this->shignal_driver->send(reqData);
-        this->cli_driver->print_info("l4");
     std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-    this->cli_driver->print_info("right before lock...");
-    // std::unique_lock<std::mutex> lock(shignalMtx);
-    // this->cli_driver->print_info("right after lock...");
-    // shignalCondVar.wait(lock, [&]() {
-    //   this->cli_driver->print_success("IN LOCK RET");
-    //   return !shignalPrekeyResponses.empty();
-    // }); 
     std::unique_lock<std::mutex> lock(shignalMtx);
     if (!shignalCondVar.wait_for(lock, std::chrono::seconds(5), [&]() {
-      this->cli_driver->print_success("IN LOCK RET");
+      // this->cli_driver->print_success("IN LOCK RET");
         return !shignalPrekeyResponses.empty();
     })) {
       this->cli_driver->print_warning("Timeout waiting for prekey response.");
     }
-    this->cli_driver->print_info("after lock...");
+    // this->cli_driver->print_info("after lock...");
     std::vector<unsigned char> respData = shignalPrekeyResponses.front();
-    this->cli_driver->print_info("l5");
     shignalPrekeyResponses.pop_front();
-    this->cli_driver->print_info("l6");
     prekeyResp.deserialize(respData);
-    this->cli_driver->print_info("l7");
     retries++;
   }
   if (!prekeyResp.found) {
@@ -699,10 +683,11 @@ void UserClient::DoInviteMember(std::string recipientId, std::pair<CryptoPP::Sec
   }
 
   // atp we must have the prekey, now do authenticated KE
-  this->cli_driver->print_success("Found prekey bundle for new user " + recipientId + ", now doing authenticated KE...");
+  // this->cli_driver->print_success("Found prekey bundle for new user " + recipientId + ", now doing authenticated KE...");
   auto keys2 = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, recipientId);
   this->groupState.dhKeyMap[recipientId] = keys2;
-  this->cli_driver->print_success("EODoInviteMember: Authenticated KE with new user " + recipientId + " complete.");
+  // this->cli_driver->print_success("EODoInviteMember: Authenticated KE with new user " + recipientId + " complete.");
+  this->cli_driver->print_success(recipientId+" accepted the invite; added to group chat!");
 }
 
 
@@ -727,6 +712,7 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
 
   AdminToUser_InviteMessage inviteMsg;
   inviteMsg.deserialize(decInvite);
+  // print the invite
   this->cli_driver->print_success(inviteMsg.inviteMsg);
 
   // prompt user for response
@@ -755,7 +741,7 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
   GroupState_Message groupStateMsg;
   groupStateMsg.deserialize(decGroupState);
   this->groupState = groupStateMsg;
-  this->cli_driver->print_success("You have joined the group chat!");
+  // this->cli_driver->print_success("You have joined the group chat!");
 
   // send prekey bundle to ShigalServer
   PrekeyBundle bundle;
@@ -770,11 +756,11 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
   prekeyMsg.userId = this->id;
   prekeyMsg.prekeyBundle = bundle;
 
-  this->cli_driver->print_info("Attempting to send prekey bundle to ShignalServer...");
+  // this->cli_driver->print_info("Attempting to send prekey bundle to ShignalServer...");
   std::vector<unsigned char> prekeyData;
   prekeyMsg.serialize(prekeyData);
   this->shignal_driver->send(prekeyData);
-  this->cli_driver->print_success("Prekey bundle sent to ShignalServer.");
+  // this->cli_driver->print_success("Prekey bundle sent to ShignalServer.");
 
   // do auth KE for all members' prekeys in current epoch
   for (auto memberId : this->groupState.members) {
@@ -786,17 +772,8 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
       std::vector<unsigned char> prekeyReqData;
       prekeyReq.serialize(prekeyReqData);
       this->shignal_driver->send(prekeyReqData);
-      this->cli_driver->print_success("Sent prekey request to ShignalServer for " + memberId);
+      // this->cli_driver->print_success("Sent prekey request to ShignalServer for " + memberId);
 
-      // wait for prekey bundle response
-      // std::vector<unsigned char> respData = this->shignal_driver->read();
-      // this->cli_driver->print_success("Received prekey bundle from ShignalServer for " + memberId);
-      // this->cli_driver->print_info("DOJOINGROUP: Received Shignal message of type " + std::to_string(respData[0]));
-      // while (respData[0] != MessageType::ShignalToUser_PrekeyBundleResponse) {
-      //   this->cli_driver->print_warning("DOJOINGROUP: wrong messageType received.");
-      //   this->cli_driver->print_info("DOJOINGROUP: listening again...");
-      //   respData = this->shignal_driver->read();
-      // }      
       std::unique_lock<std::mutex> lock(shignalMtx);
       shignalCondVar.wait(lock, [&]() {
         return !shignalPrekeyResponses.empty();
@@ -828,12 +805,13 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
         this->cli_driver->print_warning("Prekey not found for " + memberId + ". Skipping KE.");
         continue;
       }
-      this->cli_driver->print_success("Prekey bundle found for " + memberId + ", now doing KE...");
+      // this->cli_driver->print_success("Prekey bundle found for " + memberId + ", now doing KE...");
       // do authenticated KE with the prekey bundle
       std::pair<CryptoPP::SecByteBlock, CryptoPP::SecByteBlock> keys = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, memberId);
       // store the keys in the dhKeyMap
       this->groupState.dhKeyMap[memberId] = keys;
-      this->cli_driver->print_success("Authenticated KE with " + memberId);
+      // this->cli_driver->print_success("Authenticated KE with " + memberId);
+      this->cli_driver->print_success("You have joined the group chat!");
     }
   }
 }
@@ -843,7 +821,7 @@ void UserClient::DoJoinGroup(std::pair<SecByteBlock, SecByteBlock> keys, std::sh
  */
 void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
   // deserialize the masked msg
-  this->cli_driver->print_info("HANDLESHIGNALMSG: recvd message of type " + std::to_string(data[0]));
+  // this->cli_driver->print_info("HANDLESHIGNALMSG: recvd message of type " + std::to_string(data[0]));
 
   if (data[0] != MessageType::Shignal_GenericMessage) {
     this->cli_driver->print_warning("Invalid Shignal message received.");
@@ -852,7 +830,7 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
 
   Shignal_GenericMessage maskedMsg;
   maskedMsg.deserialize(data);
-  this->cli_driver->print_success("MESSAGE FROM: "+maskedMsg.senderId+ ", SENT TO: "+maskedMsg.recipientId);
+  // this->cli_driver->print_success("MESSAGE FROM: "+maskedMsg.senderId+ ", SENT TO: "+maskedMsg.recipientId);
   // make sure we have keys for the recipient and get them
   if (!this->groupState.dhKeyMap.contains(maskedMsg.senderId)) {
     this->cli_driver->print_warning("Received message for unknown recipient: " + maskedMsg.senderId);
@@ -876,12 +854,12 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
   }
 
   if (decMsg[0] == MessageType::MessagePayload) {
-    // this is a normal message, handle normally
-    this->cli_driver->print_info("handling message payload");
+    // // this is a normal message, handle normally
+    // this->cli_driver->print_info("handling message payload");
     HandleMessagePayload(decMsg);
   } else if (decMsg[0] == MessageType::AdminToUser_Add_ControlMessage) {
-    // this is a control message, handle
-    this->cli_driver->print_info("handling add control message");
+    // // this is a control message, handle
+    // this->cli_driver->print_info("handling add control message");
     std::thread([this, decMsg]() {
         this->HandleAddControlMessage(decMsg);
     }).detach();
@@ -903,6 +881,7 @@ void UserClient::HandleMessagePayload(std::vector<unsigned char> decMsg) {
   msg.deserialize(decMsg);
   this->cli_driver->print_success("From " + msg.senderId + ": ");
   std::cout << msg.msgContent << std::endl;
+  this->cli_driver->print_info("Type your command: ");
 }
 
 /**
@@ -919,7 +898,7 @@ void UserClient::HandleAddControlMessage(std::vector<unsigned char> decMsg) {
     this->cli_driver->print_warning("Invalid admin signature on Add_ControlMessage");
     return;
   }
-  this->cli_driver->print_success("Received Add_ControlMessage for new user: " + msg.newUserId);
+  // this->cli_driver->print_success("Received Add_ControlMessage for new user: " + msg.newUserId);
 
   // poll for new user's prekey bundle from server
   std::string recipientId = msg.newUserId;
@@ -960,12 +939,14 @@ void UserClient::HandleAddControlMessage(std::vector<unsigned char> decMsg) {
     return;
   }
   // atp we must have the prekey, now do authenticated KE
-  this->cli_driver->print_success("Found prekey bundle for new user " + recipientId + ", now doing authenticated KE...");
+  // this->cli_driver->print_success("Found prekey bundle for new user " + recipientId + ", now doing authenticated KE...");
   auto keys2 = this->HandleBundleKeyExchange(prekeyResp.prekeyBundle, recipientId);
   this->groupState.dhKeyMap[recipientId] = keys2;
   // add the new user to the group state
   this->groupState.members.insert(msg.newUserId);
-  this->cli_driver->print_success("EOAddControlMsg: Authenticated KE with new user " + recipientId + " complete.");
+  // this->cli_driver->print_success("EOAddControlMsg: Authenticated KE with new user " + recipientId + " complete.");
+  this->cli_driver->print_success("New user " + recipientId + " added to group chat.");
+  this->cli_driver->print_info("Type your command: ");
 }
 
 // =================================================================
@@ -988,14 +969,14 @@ void UserClient::DoSendGroupMessage(std::string message) {
       std::vector<unsigned char> msgData = crypto_driver->encrypt_and_tag(memberKeys.first,memberKeys.second,&messagePayload);
       // then send the cipher through GenericMessage
       Shignal_GenericMessage maskedMsg;
-      this->cli_driver->print_success("DoSendGroupMsg: SETTING SENDERID TO " + this->id);
+      // this->cli_driver->print_success("DoSendGroupMsg: SETTING SENDERID TO " + this->id);
       maskedMsg.senderId = this->id;
       maskedMsg.recipientId = memberId;
       maskedMsg.ciphertext = msgData;
       std::vector<unsigned char> maskedMsgData;
       maskedMsg.serialize(maskedMsgData);
       shignal_driver->send(maskedMsgData);
-      this->cli_driver->print_success("Sent message to " + memberId);
+      // this->cli_driver->print_success("Sent message to " + memberId);
     }
   }
 }
@@ -1086,7 +1067,7 @@ void UserClient::ShignalReceiveThread() {
 
     try {
       data = this->shignal_driver->read();
-      this->cli_driver->print_info("Received data from ShignalServer");
+      // this->cli_driver->print_info("Received data from ShignalServer");
     } catch (const std::runtime_error &e) {
       this->cli_driver->print_warning("Signal server connection closed or read failed.");
       return;
@@ -1096,19 +1077,18 @@ void UserClient::ShignalReceiveThread() {
       // // HELPER FOR VISUALIZATION, REMOVE LATER
       // ShignalToUser_PrekeyBundleResponse prekeyResp;
       // prekeyResp.deserialize(data);
-      this->cli_driver->print_info("HANDLING BUNDLE RESP");
+      // this->cli_driver->print_info("HANDLING BUNDLE RESP");
       std::lock_guard<std::mutex> lock(shignalMtx);
-      this->cli_driver->print_info("lock");
+      // this->cli_driver->print_info("lock");
       shignalPrekeyResponses.push_back(data);
-      this->cli_driver->print_info("pushback: "+std::to_string(shignalPrekeyResponses.size())+", front[0]: "+std::to_string(shignalPrekeyResponses.front()[0]));
-      this->cli_driver->print_info("pushback");
+      // this->cli_driver->print_info("pushback: "+std::to_string(shignalPrekeyResponses.size())+", front[0]: "+std::to_string(shignalPrekeyResponses.front()[0]));
       shignalCondVar.notify_all();
-      this->cli_driver->print_info("notifyall");
+      // this->cli_driver->print_info("notifyall");
     } else {
       try {
-        this->cli_driver->print_info("Delegating message to HandleShignalMessage...");
+        // this->cli_driver->print_info("Delegating message to HandleShignalMessage...");
         this->HandleShignalMessage(data);
-        this->cli_driver->print_info("Finished handling Shignal message");
+        // this->cli_driver->print_info("Finished handling Shignal message");
       } catch (const std::exception &e) {
         this->cli_driver->print_warning("Failed to handle Shignal message: " + std::string(e.what()));
       }

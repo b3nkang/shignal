@@ -127,10 +127,10 @@ bool ServerClient::HandleConnection(
     std::shared_ptr<NetworkDriver> network_driver,
     std::shared_ptr<CryptoDriver> crypto_driver) {
   try {
-    this->cli_driver->print_info("HandleConnection: starting KE");
+    // this->cli_driver->print_info("HandleConnection: starting KE");
     auto keys = HandleKeyExchange(network_driver, crypto_driver);
 
-    this->cli_driver->print_info("HandleConnection: waiting for ID prompt");
+    // this->cli_driver->print_info("HandleConnection: waiting for ID prompt");
     auto idPromptData = network_driver->read();
 
     std::vector<unsigned char> decIdPromptData;
@@ -143,13 +143,13 @@ bool ServerClient::HandleConnection(
     }
 
     idPromptMsg.deserialize(decIdPromptData);
-    this->cli_driver->print_info("HandleConnection: got ID prompt for user " + idPromptMsg.id);
+    // this->cli_driver->print_info("HandleConnection: got ID prompt for user " + idPromptMsg.id);
 
     if (idPromptMsg.new_user) {
-      this->cli_driver->print_info("HandleConnection: new user, calling HandleRegister");
+      // this->cli_driver->print_info("HandleConnection: new user, calling HandleRegister");
       HandleRegister(network_driver, crypto_driver, idPromptMsg.id, keys);
     } else {
-      this->cli_driver->print_info("HandleConnection: existing user, calling HandleLogin");
+      // this->cli_driver->print_info("HandleConnection: existing user, calling HandleLogin");
       HandleLogin(network_driver, crypto_driver, idPromptMsg.id, keys);
     }
 
