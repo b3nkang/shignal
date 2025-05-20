@@ -44,7 +44,7 @@ private:
   std::map<std::string,std::shared_ptr<NetworkDriver>> onlineUsers;
 
   // map of users to their inboxes for storing messages while offline
-  std::map<std::string,std::deque<Shignal_GenericMessage>> userInboxes;
+  std::map<std::string,std::deque<std::vector<unsigned char>>> userInboxes;
   
   // map of epochID to a map of userID to PrekeyBundles
   std::map<std::string,std::map<std::string,PrekeyBundle>> epochPrekeys;

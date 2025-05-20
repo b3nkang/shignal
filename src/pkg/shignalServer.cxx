@@ -142,11 +142,11 @@ void ShignalServerClient::HandleGenericMessage(std::vector<unsigned char> data) 
       this->onlineUsers.erase(msg.recipientId);
       // add to inbox
       this->cli_driver->print_info("Storing message in inbox for offline user: " + msg.recipientId);
-      this->userInboxes[msg.recipientId].push_back(msg);
+      this->userInboxes[msg.recipientId].push_back(data);
     }
   } else {
     this->cli_driver->print_info("Recipient offline; message stored for user: " + msg.recipientId);
-    this->userInboxes[msg.recipientId].push_back(msg);
+    this->userInboxes[msg.recipientId].push_back(data);
   }
   this->cli_driver->print_info("Message forwarding execution finished.");
 }
@@ -165,9 +165,9 @@ void ShignalServerClient::HandleOnlineMessage(std::vector<unsigned char> data,st
   if (this->userInboxes.contains(msg.userId)) {
     auto &inbox = this->userInboxes.at(msg.userId);
     while (!inbox.empty()) {
-      Shignal_GenericMessage &message = inbox.front();
+      std::vector<unsigned char> data = inbox.front();
       this->cli_driver->print_info("Sending offline message from inbox to " + msg.userId);
-      driver->send(message.ciphertext);
+      driver->send(data);
       inbox.pop_front();
     }
     this->userInboxes.erase(msg.userId);
@@ -195,7 +195,7 @@ void ShignalServerClient::HandlePrekeyBundle(std::vector<unsigned char> data) {
   // vrfy inbox exists for this user, if not, create it since it is a new user sending us their prekey bundle
   if (!this->userInboxes.contains(msg.userId)) {
     this->cli_driver->print_success("Creating inbox for new user: " + msg.userId);
-    this->userInboxes[msg.userId] = std::deque<Shignal_GenericMessage>();
+    this->userInboxes[msg.userId] = std::deque<std::vector<unsigned char>>();
   }
 }
 
