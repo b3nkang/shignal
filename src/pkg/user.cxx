@@ -150,7 +150,7 @@ void UserClient::HandleInviteMember(std::string input) {
   // peerDriver->connect("localhost", port);
   cli_driver->print_info("Successfully connected on port " + std::to_string(port)+", now attempting KE...");
   auto keys = this->HandleUserKeyExchangeForInvite(peerDriver);
-  this->groupState.dhKeyMap[userId] = {keys.first, keys.second};
+  // this->groupState.dhKeyMap[userId] = {keys.first, keys.second};
   this->cli_driver->print_success("KE completed, connected to " + userId+", now sending invite...");
 
   this->DoInviteMember(userId, keys, peerDriver);
@@ -294,6 +294,7 @@ UserClient::HandleUserKeyExchangeForInvite(std::shared_ptr<NetworkDriver> driver
   SecByteBlock DHsk, DHpk;
   std::tie(DH_obj, DHsk, DHpk) = this->crypto_driver->DH_initialize();
 
+  this->DH_obj = DH_obj;
   this->DH_pk = DHpk;
   this->DH_sk = DHsk;
 
@@ -362,9 +363,9 @@ UserClient::HandleBundleKeyExchange(PrekeyBundle &bundle, std::string memberId) 
     throw std::runtime_error("senderDhPk is empty; cannot generate shared key");
   }
 
-  DH DH_obj;
-  SecByteBlock DHsk, DHpk;
-  std::tie(DH_obj, DHsk, DHpk) = this->crypto_driver->DH_initialize();
+  DH DH_obj = this->DH_obj;
+  SecByteBlock DHsk = this->DH_sk;
+  SecByteBlock DHpk = this->DH_pk;
 
   SecByteBlock DHshared(DH_obj.AgreedValueLength());
   DHshared = this->crypto_driver->DH_generate_shared_key(DH_obj, DHsk, bundle.senderDhPk);
@@ -856,6 +857,7 @@ void UserClient::HandleShignalMessage(std::vector<unsigned char> data) {
     return;
   }
   auto [aesKey, hmacKey] = this->groupState.dhKeyMap.at(maskedMsg.senderId);
+  
 
   // dec and vrfy
   std::vector<unsigned char> decMsg;

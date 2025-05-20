@@ -67,6 +67,7 @@ private:
   CryptoPP::RSA::PublicKey RSA_verification_key;
   CryptoPP::RSA::PublicKey RSA_server_verification_key;
   CryptoPP::RSA::PublicKey RSA_remote_verification_key;
+  CryptoPP::DH DH_obj;
   CryptoPP::SecByteBlock DH_sk;
   CryptoPP::SecByteBlock DH_pk;
   CryptoPP::SecByteBlock prg_seed;
