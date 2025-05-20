@@ -1,6 +1,6 @@
 {
-    "user_username": "kujo_jotaro",
-    "user_password": "star_platinum",
+    "user_username": "ben",
+    "user_password": "ben",
     "user_signing_key_path": "../keys/user1-rsa-private.key",
     "user_verification_key_path": "../keys/user1-rsa-public.key",
     "user_prg_seed_path": "../keys/user1-prg-seed.txt",
