@@ -1,3 +1,10 @@
+# shignal (shitty signal)
+
+### Overview 
+Shignal is a feeble attempt in applied cryptography to emulate the security protocols of the group chat and messaging service Signal. This in-progress implementation features complete group structure hiding from the server and offline messaging, while maintaining authenticated key exchange between all group chat users through prekey bundling to prevent MitM attacks. In the future, the goal is to implement asynchronous, offline rekeying to facilitate the leaving of group chat members.
+
+The project is written in C++ with CryptoPP and, beyond the immediate Shignal functionality, also features manual implementations of AES encryption, decryption, HMAC tagging, signatures and certificates, and login and registration processes that use salting, peppering, and seeding. Extensive networking and concurrency work has also been completed to wire up all parties within the codebase.
+
 ## Running the group chat
 
 ### Building the project and starting the servers
@@ -38,7 +45,7 @@ or
 register localhost 1234
 ```
 
-The server throw an error and will prompt for the correct command in the case the wrong command is supplied. The auth server terminal, upon execution of these commands in the user terminals, will also provide a log confirming the user has registered/logged in successfully.
+The server throws an error and will prompt for the correct command in the case the wrong command is supplied. The auth server terminal, upon execution of these commands in the user terminals, will also provide a log confirming the user has registered/logged in successfully.
 
 ### Creating a group as admin and inviting a new member
 
