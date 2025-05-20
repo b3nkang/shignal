@@ -141,10 +141,11 @@ void ShignalServerClient::HandleGenericMessage(std::vector<unsigned char> data) 
       // mark now as offline
       this->onlineUsers.erase(msg.recipientId);
       // add to inbox
+      this->cli_driver->print_info("Storing message in inbox for offline user: " + msg.recipientId);
       this->userInboxes[msg.recipientId].push_back(msg);
     }
   } else {
-    this->cli_driver->print_info("Recipient offline; message stored.");
+    this->cli_driver->print_info("Recipient offline; message stored for user: " + msg.recipientId);
     this->userInboxes[msg.recipientId].push_back(msg);
   }
   this->cli_driver->print_info("Message forwarding execution finished.");
@@ -220,8 +221,8 @@ void ShignalServerClient::HandlePrekeyBundleRequest(std::vector<unsigned char> d
     if (this->onlineUsers.contains(msg.requestorId)) {
       this->cli_driver->print_info("Requestor "+msg.requestorId+" is online.");
       this->onlineUsers[msg.requestorId]->send(responseData);
-      this->onlineUsers[msg.requestorId]->send(responseData);
-      this->onlineUsers[msg.requestorId]->send(responseData);
+      // this->onlineUsers[msg.requestorId]->send(responseData);
+      // this->onlineUsers[msg.requestorId]->send(responseData);
 
       this->cli_driver->print_success("Sent PrekeyBundle to " + msg.requestorId);
 
