@@ -200,12 +200,6 @@ Note well:
 
 ## References
 
-@misc{cryptoeprint:2017/713,
-      author = {Paul Rösler and Christian Mainka and Jörg Schwenk},
-      title = {More is Less: On the End-to-End Security of Group Chats in Signal, {WhatsApp}, and Threema},
-      howpublished = {Cryptology {ePrint} Archive, Paper 2017/713},
-      year = {2017},
-      url = {https://eprint.iacr.org/2017/713}
-}
+Paul Rösler, Christian Mainka, and Jörg Schwenk. 2017. More is Less: On the End-to-End Security of Group Chats in Signal, WhatsApp, and Threema. *Cryptology ePrint Archive, Report 2017/713*. https://eprint.iacr.org/2017/713
 
 
