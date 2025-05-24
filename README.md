@@ -39,17 +39,41 @@ Easily the most complicated flow (and also unimplemented), but the general idea 
 
 ## Running Shignal
 
-### Building the Project and Starting the Servers
+### Docker and Building the Project
 
-Run `cmake ..` and `cd` into the `/build` directory with `cd build`.
+Because CryptoPP is no longer maintained and many of its surrounding dependencies are deprecated, this project runs best in a Docker container. Thus, to run the project, start by installing Docker.
 
-Then start the shitty `shignal_server` first in a terminal with:
+Then, with the Docker app open, from the root of the project directory, build the project's Docker image with the following command:
+```
+docker build -t shignal-dev .
+```
+This should take around 3-5 minutes depending on the hardware. This is only necessary this the first time this project is run, directly after cloning the repo.
+
+Once this is complete, launch the Docker container with the following:
+```
+docker run --rm -it --name shignal-container -v "$PWD":/home/shignal-user shignal-dev
+```
+If successful, the terminal prompt should change to something like the following:
+```
+shignal-user@10c67a498540:~$ 
+```
+Now, reopen the project in the now-running container. In VS Code, this can be done by opening the Command Palette with `command + shift + p` and typing `Dev Containers: Attach to Running Container`. Then, select the container named `shignal-container`, and open the project at the root once the container loads in (if it does not immediately open the project at the root on container launch).
+
+Note well that in VS Code settings (accessible via `command + ,` the `Docker Path` setting, which specifies `Docker (or Podman) executable name or path`, should be set to `docker`.)
+
+### Compiling and Running Shignal
+
+Now that we are in the Docker container with everything installed, we are ready to run Shignal.
+
+Start by cd-ing into `/build` directory with `cd build`. Then, run `cmake ..`, followed by `make`. This will generate all the executables in the `/build` directory.
+
+Now, still from the `/build` directory, start the shitty `shignal_server` first with:
 
 ```
 ./shignal_server
 ```
 
-Next, in another terminal, from the `/build` directory, start the authentication server for login/registration. You can pick any port to run this on, but we use port `1234` for the auth server in the command below:
+Next, in another terminal from the `/build` directory, start the authentication server for login/registration. You can pick any port to run this on, but we use port `1234` for the auth server in the command below:
 
 ```
 ./auth_server 1234 ../config/server-config.json
@@ -157,7 +181,7 @@ Note well:
 - **user_ids sent in the clear to the server**
     - server knows the sender and receiver of a message
     - observer can easily build a communication graph to figure out the group
-    - fix: ephemeral rotating IDs with a lookup table (ran out of time/scope blew up)
+    - fix: ephemeral rotating IDs with a lookup table
 - **messages to all other gc members sent at the same time**
     - server is able to deduce group structure through fanout patterns
     - could probably side channel groups over time
@@ -171,6 +195,6 @@ Note well:
     - we try to avoid this by having garbage epoch_ids also as noise
     - improved fix: abstract away Prekey_Message into generic Control_Message
     - fix: batching, delays, other tactics similar to the gc timing issue
-- **no timestamps supported currently, to add**
+- **no timestamps supported currently, to do**
 - **very long term goal: add ratcheting, implement lightweight TLS, old epoch eviction**
 
