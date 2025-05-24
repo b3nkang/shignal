@@ -198,3 +198,14 @@ Note well:
 - **no timestamps supported currently, to do**
 - **very long term goal: add ratcheting, implement lightweight TLS, old epoch eviction**
 
+## References
+
+@misc{cryptoeprint:2017/713,
+      author = {Paul Rösler and Christian Mainka and Jörg Schwenk},
+      title = {More is Less: On the End-to-End Security of Group Chats in Signal, {WhatsApp}, and Threema},
+      howpublished = {Cryptology {ePrint} Archive, Paper 2017/713},
+      year = {2017},
+      url = {https://eprint.iacr.org/2017/713}
+}
+
+
