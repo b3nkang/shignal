@@ -45,7 +45,7 @@ Easily the most complicated flow (and also unimplemented), but the general idea 
 
 ## Demo
 
-https://github.com/user-attachments/assets/7b46d7a9-3eb9-40d1-b273-c3ca83e222d8
+[Demo viewable here](https://github.com/user-attachments/assets/7b46d7a9-3eb9-40d1-b273-c3ca83e222d8)
 
 
 ## Running Shignal
