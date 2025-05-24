@@ -43,6 +43,11 @@ Easily the most complicated flow (and also unimplemented), but the general idea 
 <img width="1064" alt="image" src="https://github.com/user-attachments/assets/c06e52a2-20b9-4f6a-8fa8-d5debd7e23ab" />
 <img width="1063" alt="image" src="https://github.com/user-attachments/assets/f610d600-494a-4a02-a697-116cb6a60b83" />
 
+## Demo
+
+https://github.com/user-attachments/assets/7b46d7a9-3eb9-40d1-b273-c3ca83e222d8
+
+
 ## Running Shignal
 
 ### Docker and Building the Project
