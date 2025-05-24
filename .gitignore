@@ -52,3 +52,11 @@ snipped/
 .DS_Store
 .devcontainer
 *.cpp
+
+# docker artifacts
+.cache/*
+.dotnet/*
+.ssh/*
+.vscode-server/*
+.bash_history
+.gitconfig
