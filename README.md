@@ -209,3 +209,7 @@ Note well:
   - fix: batching, delays, other tactics similar to the gc timing issue
 - **no timestamps supported currently, to do**
 - **very long term goal: add ratcheting, implement lightweight TLS, old epoch eviction**
+
+## References
+
+Paul Rösler, Christian Mainka, and Jörg Schwenk. 2017. More is Less: On the End-to-End Security of Group Chats in Signal, WhatsApp, and Threema. _Cryptology ePrint Archive, Report 2017/713_. https://eprint.iacr.org/2017/713
