@@ -2,26 +2,32 @@
 
 <img width="759" alt="image" src="https://github.com/user-attachments/assets/e55c7261-1ea3-4cce-ae16-42f1a3f2ee80" />
 
-## Overview 
+## Overview
+
 Shignal is a feeble attempt in applied cryptography to emulate the security protocols of the group chat and messaging service Signal. This in-progress implementation features complete group structure hiding from the server and offline messaging, while maintaining authenticated key exchange between all group chat users through prekey bundling to prevent MitM attacks. In the future, the goal is to implement asynchronous, offline rekeying to facilitate the leaving of group chat members.
 
 The project is written in C++ with CryptoPP and, beyond the immediate Shignal functionality, also features manual implementations of AES encryption, decryption, HMAC tagging, signatures and certificates, and login and registration processes that use salting, peppering, and seeding. Extensive networking and concurrency work has also been completed to wire up all parties within the codebase.
 
 ## Shignal Workflows and Assumptions
+
 ### Intuition
+
 At a high level, in order to support offline messaging, a centralized server that stores user messages is inevitable (ours is the ShignalServer). However, in order to obscure group structure and other characteristics to the server, it will only store user-to-user messages, acting as a "forwarder" between one user to another. As a result, all group state information is sorted by users themselves locally, and users must individually encrypt and send each message to every group member. All our server sees is the sender and receiver—information we unfortunately cannot abstract away in any practical implementation—but that is it. All messages of any kind—regular messages, admin messages, and add member messages, for example—appear to the server as random garbage, and nothing else can be gleaned about the hierarchy of the group (excluding side channel attacks like fanout patterns, but which are remedied with batching, random traffic, and delays which we deem out of scope).
 
 ### User-to-Shignal Communication
-As is consistent with Rösler, Mainka, and Schwenk (2018), we assume the underlying communication protocol between the user and the ShignalServer is secure, through something like TLS. Our focus is on the security and integrity of messages between the users themselves. 
+
+As is consistent with Rösler, Mainka, and Schwenk (2018), we assume the underlying communication protocol between the user and the ShignalServer is secure, through something like TLS. Our focus is on the security and integrity of messages between the users themselves.
 
 <img width="759" alt="image" src="https://github.com/user-attachments/assets/e41faa57-6cd0-4f68-971d-3a84c904160a" />
 
 ### Adding a Member to the Group Chat
+
 This involves DHKE between the users directly, before the invitee receives the group state information and uploading their prekey bundle, before then doing two-sided authenticated key exchange (2KE) with all other member prekey bundles. All other members then also need to be notified of this new member's addition so that they can update their local group states appropriately and then perform asynchronous 2KE with the new member's uploaded prekey bundle. At the end of this flow, now everyone has visibility of the new member's messages and the new member can receive messages from everyone.
 
 <img width="1068" alt="image" src="https://github.com/user-attachments/assets/db2f03dd-5bb5-4f01-9b7a-915ea425ba54" />
 
 ### Sending a Message to the Group Chat
+
 The flow to send a message is comparatively much simpler. The user simply encrypts and sends their message N times where N is the number of group chat members, each time encrypting and tagging with their keys derived from the asynchrnous 2KE with all others' bundles. As such, the server has no way to see the actual message content aside from forwarding the message to the appropriate users, after which the recipient users (who have also done this async 2KE and thus have the keys) can decrypt and verify the sent message.
 
 <img width="1065" alt="image" src="https://github.com/user-attachments/assets/e3b30247-43df-4fb7-8cf4-c9ea45ac1cd3" />
@@ -44,28 +50,34 @@ Easily the most complicated flow (and also unimplemented), but the general idea 
 Because CryptoPP is no longer maintained and many of its surrounding dependencies are deprecated, this project runs best in a Docker container. Thus, to run the project, start by installing Docker.
 
 Then, with the Docker app open, from the root of the project directory, build the project's Docker image with the following command:
+
 ```
 docker build -t shignal-dev .
 ```
+
 This should take around 3-5 minutes depending on the hardware. This is only necessary this the first time this project is run, directly after cloning the repo.
 
 Once this is complete, launch the Docker container with the following:
+
 ```
 docker run --rm -it --name shignal-container -v "$PWD":/home/shignal-user shignal-dev
 ```
+
 If successful, the terminal prompt should change to something like the following:
+
 ```
-shignal-user@10c67a498540:~$ 
+shignal-user@10c67a498540:~$
 ```
+
 Now, reopen the project in the now-running container. In VS Code, this can be done by opening the Command Palette with `command + shift + p` and typing `Dev Containers: Attach to Running Container`. Then, select the container named `shignal-container`, and open the project at the root once the container loads in (if it does not immediately open the project at the root on container launch).
 
-Note well that in VS Code settings (accessible via `command + ,` the `Docker Path` setting, which specifies `Docker (or Podman) executable name or path`, should be set to `docker`.)
+Note well that in VS Code settings (accessible via `command + ,`), the `Docker Path` setting, which specifies `Docker (or Podman) executable name or path`, should be set to `docker`.
 
 ### Compiling and Running Shignal
 
 Now that we are in the Docker container with everything installed, we are ready to run Shignal.
 
-Start by cd-ing into `/build` directory with `cd build`. Then, run `cmake ..`, followed by `make`. This will generate all the executables in the `/build` directory.
+Start by cd-ing into `/build` directory with `cd build`. On the first run, you will have to create this directory with `mkdir build`, followed by `cd build`. Then, run `cmake ..`, and then `make`. This will generate all the executables in the `/build` directory.
 
 Now, still from the `/build` directory, start the shitty `shignal_server` first with:
 
@@ -179,22 +191,21 @@ Note well:
 ## Persisting/Known Issues, and Possible Fixes
 
 - **user_ids sent in the clear to the server**
-    - server knows the sender and receiver of a message
-    - observer can easily build a communication graph to figure out the group
-    - fix: ephemeral rotating IDs with a lookup table
+  - server knows the sender and receiver of a message
+  - observer can easily build a communication graph to figure out the group
+  - fix: ephemeral rotating IDs with a lookup table
 - **messages to all other gc members sent at the same time**
-    - server is able to deduce group structure through fanout patterns
-    - could probably side channel groups over time
-    - fix: batch messages and random delays
-    - fix: dummy messages that do nothing
+  - server is able to deduce group structure through fanout patterns
+  - could probably side channel groups over time
+  - fix: batch messages and random delays
+  - fix: dummy messages that do nothing
 - **prekey bundle on server is still insecure**
-    - prekey can be tampered with, ideally needs to be signed, replay attack weakness
-    - fix: implement X3DH (out of scope)
+  - prekey can be tampered with, ideally needs to be signed, replay attack weakness
+  - fix: implement X3DH (out of scope)
 - **epoch_id for facilitating rekeying without synchronization issues leaks info**
-    - the server can tell when rekeying happens begins (and who might be involved)
-    - we try to avoid this by having garbage epoch_ids also as noise
-    - improved fix: abstract away Prekey_Message into generic Control_Message
-    - fix: batching, delays, other tactics similar to the gc timing issue
+  - the server can tell when rekeying happens begins (and who might be involved)
+  - we try to avoid this by having garbage epoch_ids also as noise
+  - improved fix: abstract away Prekey_Message into generic Control_Message
+  - fix: batching, delays, other tactics similar to the gc timing issue
 - **no timestamps supported currently, to do**
 - **very long term goal: add ratcheting, implement lightweight TLS, old epoch eviction**
-
