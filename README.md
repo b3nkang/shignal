@@ -40,8 +40,8 @@ Easily the most complicated flow (and also unimplemented), but the general idea 
 
 ### Signup and Login Flows
 
-<img width="1064" alt="image" src="https://github.com/user-attachments/assets/c06e52a2-20b9-4f6a-8fa8-d5debd7e23ab" />
-<img width="1063" alt="image" src="https://github.com/user-attachments/assets/f610d600-494a-4a02-a697-116cb6a60b83" />
+<img width="1068" alt="image" src="https://github.com/user-attachments/assets/5c563bbd-0fc3-4726-8de1-80c989ed7201" />
+<img width="1066" alt="image" src="https://github.com/user-attachments/assets/1888e675-35dd-4f55-8d7f-e2f7999cadaf" />
 
 ## Demo
 
