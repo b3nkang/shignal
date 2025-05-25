@@ -4,15 +4,15 @@
 
 ## Overview
 
-Shignal is a feeble attempt in applied cryptography to emulate the security protocols of the group chat and messaging service Signal. This in-progress implementation features complete group structure hiding from the server and offline messaging, while maintaining authenticated key exchange between all group chat users through prekey bundling to prevent MitM attacks. In the future, the goal is to implement asynchronous, offline rekeying to facilitate the leaving of group chat members.
+Shignal is an attempt in applied cryptography to emulate the security protocols of the group chat and messaging service Signal. This in-progress implementation features complete group structure hiding from the server and offline messaging, while maintaining authenticated key exchange between all group chat users through prekey bundling to prevent MitM attacks. In the future, the goal is to implement asynchronous, offline rekeying to facilitate the leaving of group chat members.
 
-The project is written in C++ with CryptoPP and, beyond the immediate Shignal functionality, also features manual implementations of AES encryption, decryption, HMAC tagging, signatures and certificates, and login and registration processes that use salting, peppering, and seeding. Extensive networking and concurrency work has also been completed to wire up all parties within the codebase.
+The project is written in C++ with CryptoPP and, beyond the immediate Shignal functionality, also features manual implementations of AES encryption, decryption, HMAC tagging, signatures and certificates, and login and registration processes that use hashing, salting/peppering, and two-factor authentication to increase security. Extensive networking and concurrency work has also been completed to wire up all parties within the codebase.
 
 ## Shignal Workflows and Assumptions
 
 ### Intuition
 
-At a high level, in order to support offline messaging, a centralized server that stores user messages is inevitable (ours is the ShignalServer). However, in order to obscure group structure and other characteristics to the server, it will only store user-to-user messages, acting as a "forwarder" between one user to another. As a result, all group state information is sorted by users themselves locally, and users must individually encrypt and send each message to every group member. All our server sees is the sender and receiver—information we unfortunately cannot abstract away in any practical implementation—but that is it. All messages of any kind—regular messages, admin messages, and add member messages, for example—appear to the server as random garbage, and nothing else can be gleaned about the hierarchy of the group (excluding side channel attacks like fanout patterns, but which are remedied with batching, random traffic, and delays which we deem out of scope).
+At a high level, in order to support offline messaging, a centralized server that stores user messages is inevitable. Ours is called the ShignalServer. However, in order for our service to be as private as possible, we wish to obscure group structure and other characteristics to the server. To do this, our server will only see and store user-to-user messages, acting as a "forwarder" between one user to another—no group information or metadata must be stored in any way on the server. As a result, all group state information is stored by users themselves locally, and to send a message to a group chat, users must individually encrypt and send their message to each group member. All our server sees is the sender and receiver—information we unfortunately cannot abstract away in any practical implementation—but that is it. Messages of any kind—regular messages, admin messages, and add member messages, for example—appear to the server as random garbage, and nothing else can be gleaned about the hierarchy of the group (this is excluding side channel attacks like fanout patterns, but which are remedied with batching, random traffic, and delays which we deem out of scope).
 
 ### User-to-Shignal Communication
 
@@ -22,13 +22,13 @@ As is consistent with Rösler, Mainka, and Schwenk (2018), we assume the underly
 
 ### Adding a Member to the Group Chat
 
-This involves DHKE between the users directly, before the invitee receives the group state information and uploading their prekey bundle, before then doing two-sided authenticated key exchange (2KE) with all other member prekey bundles. All other members then also need to be notified of this new member's addition so that they can update their local group states appropriately and then perform asynchronous 2KE with the new member's uploaded prekey bundle. At the end of this flow, now everyone has visibility of the new member's messages and the new member can receive messages from everyone.
+This involves DHKE between the users directly, before the invitee receives the group state information and uploading their prekey bundle, before then doing two-sided authenticated key exchange (2AKE) with all other member prekey bundles. All other members then also need to be notified of this new member's addition so that they can update their local group states appropriately and then perform asynchronous 2AKE with the new member's uploaded prekey bundle. At the end of this flow, now everyone has visibility of the new member's messages and the new member can receive messages from everyone.
 
 <img width="1068" alt="image" src="https://github.com/user-attachments/assets/db2f03dd-5bb5-4f01-9b7a-915ea425ba54" />
 
 ### Sending a Message to the Group Chat
 
-The flow to send a message is comparatively much simpler. The user simply encrypts and sends their message N times where N is the number of group chat members, each time encrypting and tagging with their keys derived from the asynchrnous 2KE with all others' bundles. As such, the server has no way to see the actual message content aside from forwarding the message to the appropriate users, after which the recipient users (who have also done this async 2KE and thus have the keys) can decrypt and verify the sent message.
+The flow to send a message is comparatively much simpler. The user simply encrypts and sends their message N times where N is the number of group chat members, each time encrypting and tagging with their keys derived from the asynchrnous 2AKE with all others' bundles. As such, the server has no way to see the actual message content aside from forwarding the message to the appropriate users, after which the recipient users (who have also done this async 2AKE and thus have the keys) can decrypt and verify the sent message.
 
 <img width="1065" alt="image" src="https://github.com/user-attachments/assets/e3b30247-43df-4fb7-8cf4-c9ea45ac1cd3" />
 
